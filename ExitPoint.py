@@ -20,11 +20,10 @@ def handle_mix_fragment(chan_id, fragment):
        completes the mix message, all completed mix messages will be sent to
        their destinations."""
 
-    mix_msg_ref = store.parse_fragment(fragment)
+    store.parse_fragment(fragment)
 
-    if chan_id not in chan_table.channel_ids:
+    if chan_id not in sock_table.channel_ids:
         # a new udp channel was opened, save mapping and create Receiver
-        chan_table.dest_addr[chan_id] = mix_msg_ref.dest
         sock_table.socket[chan_id] = get_udp_receiver(("127.0.0.1", randint(50000, 60000)), blocking=False)#XXX
         sock_sel.register(sock_table.socket[chan_id], EVENT_READ)
 
@@ -44,7 +43,7 @@ def handle_response(socket):
     # get response data to set socket.getaddr()
     response = socket.recv(UDP_MTU)
 
-    chan_id = chan_table.channel_id[socket.getaddr()]
+    chan_id = sock_table.channel_id[socket]
 
     print(chan_id, "<-", socket.getaddr())
 
@@ -96,11 +95,8 @@ if __name__ == "__main__":
     # ultimately reach the right client
     back_to_mix = []
 
-    # look up tables to map channel ids to dest ips
-    chan_table = TwoWayTable("channel_id", "dest_addr")
-
     # look up table to map sockets to destinations
-    sock_table = TwoWayTable("socket", "dest_addr")
+    sock_table = TwoWayTable("socket", "channel_id")
 
     sock_sel = DefaultSelector()
 
