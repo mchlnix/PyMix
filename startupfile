@@ -1,0 +1,29 @@
+from socket import socket, AF_INET, SOCK_DGRAM
+
+sock = socket(AF_INET, SOCK_DGRAM)
+sock.bind(("127.0.0.1", 10000))
+
+sendtomix_addr = ("127.0.0.1", 20000)
+
+header = bytearray([127, 0, 0, 1, 0x9C, 0x40])
+
+UDP_MTU = 65535
+
+print()
+print("ERKLÄRUNG:")
+print()
+print("  Nutze diese Shell um UDP-Pakete an den EntryPoint zu schicken.")
+print("  Diese werden über die Mix-Chain versendet.")
+print("  In der Variable 'header' ist ein Beispiel-Header für das Ziel")
+print("  '127.0.0.1:40000' gespeichert. Wenn du Pakete verschicken willst,")
+print("  dann verschicke 'header+deine_payload'.")
+print("  Der Header ist nur die IPv4 in 4 Bytes und der Port in 2 Bytes")
+print("  hintereinander.")
+print()
+print("BEISPIEL:")
+print()
+print("  header = bytearray([127, 0, 0, 1, 0x9C, 0x40])")
+print("  sock.sendto(header + 'Hallo'.encode('utf-8'), sendtomix_addr)")
+print("  data, addr = sock.recv(UDP_MTU)")
+print("  print(data.decode('utf-8'))")
+print()
