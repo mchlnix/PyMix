@@ -14,12 +14,14 @@ UDP_MTU = 65535
 def handle_mix_fragment(chan_id, fragment):
     """Takes a mix fragment + channel id of the last mix and separates them.
        The mix fragment gets added to the fragment store and the destination ip
-       and port of the mix message is mapped to the channel id."""
+       and port of the mix message is mapped to the channel id. If the fragment
+       completes the mix message, all completed mix messages will be sent to
+       their destinations."""
 
-    mix_msg = store.parse_fragment(fragment)
+    mix_msg_ref = store.parse_fragment(fragment)
 
     if chan_id not in chan_table.channel_ids:
-        chan_table.dest_addr[chan_id] = mix_msg.dest
+        chan_table.dest_addr[chan_id] = mix_msg_ref.dest
 
     # send out the payload of completed MixMessages
     for message in store.completed():
