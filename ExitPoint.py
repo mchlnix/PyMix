@@ -1,6 +1,8 @@
 #!/usr/bin/python3
 # standard library
+from random import randint
 from argparse import ArgumentParser as AP
+from selectors import DefaultSelector, EVENT_READ
 # own
 from Mix import PACKET_SIZE, CHAN_ID_SIZE, get_chan_id, get_packet
 from util import i2b
@@ -21,27 +23,30 @@ def handle_mix_fragment(chan_id, fragment):
     mix_msg_ref = store.parse_fragment(fragment)
 
     if chan_id not in chan_table.channel_ids:
+        # a new udp channel was opened, save mapping and create Receiver
         chan_table.dest_addr[chan_id] = mix_msg_ref.dest
+        sock_table.socket[chan_id] = get_udp_receiver(("127.0.0.1", randint(50000, 60000)), blocking=False)#XXX
+        sock_sel.register(sock_table.socket[chan_id], EVENT_READ)
 
     # send out the payload of completed MixMessages
     for message in store.completed():
         print(chan_id, "->", message.dest)
-        r.sendto(message.payload, message.dest)
+        # get the receiver object to send the message out over
+        sock_table.socket[chan_id].sendto(message.payload, message.dest)
 
     # remove sent out messages
     store.remove_completed()
 
 
-def handle_response(response):
+def handle_response(socket):
     """Turns the response into a MixMessage and adds its fragments to the list
        of packets to send to the mix"""
-    if r.getaddr() not in chan_table.dest_addrs:
-        print("Got response from unknown address: ", r.getaddr())
-        return
+    # get response data to set socket.getaddr()
+    response = socket.recv(UDP_MTU)
 
-    chan_id = chan_table.channel_id[r.getaddr()]
+    chan_id = chan_table.channel_id[socket.getaddr()]
 
-    print(chan_id, "<-", r.getaddr())
+    print(chan_id, "<-", socket.getaddr())
 
     # got a response to a packet we sent out, so we need to match the src
     # with a channel id, fragment the message and send the fragments with
@@ -56,6 +61,14 @@ def handle_response(response):
 
     for frag in mix_frags:
         back_to_mix.append(i2b(chan_id, CHAN_ID_SIZE) + frag)
+
+    # send responses to the mix chain
+    for packet in back_to_mix:
+        sock_to_mix.sendto(packet, mix_addr)
+
+    # clear all sent responses
+    back_to_mix.clear()
+
 
 # pylint: disable=C0103
 if __name__ == "__main__":
@@ -86,10 +99,21 @@ if __name__ == "__main__":
     # look up tables to map channel ids to dest ips
     chan_table = TwoWayTable("channel_id", "dest_addr")
 
+    # look up table to map sockets to destinations
+    sock_table = TwoWayTable("socket", "dest_addr")
+
+    sock_sel = DefaultSelector()
+
+    sock_to_mix = get_udp_receiver(own_addr, blocking=False)
+
+    sock_sel.register(sock_to_mix, EVENT_READ)
+
     try:
-        with get_udp_receiver(own_addr) as r:
-            while True:
-                data = r.recv(UDP_MTU)
+        while True:
+            events = sock_sel.select()
+
+            for key, _ in events:
+                r = key.fileobj
 
                 # we assume the first message we receive will be from the mix
                 if mix_addr is None:
@@ -97,20 +121,14 @@ if __name__ == "__main__":
 
                 if r.getaddr() == mix_addr:
                     # collect mix fragments
+                    data = r.recv(UDP_MTU)
                     assert len(data) == PACKET_SIZE
                     channel_id = get_chan_id(data)
                     payload = get_packet(data)
                     handle_mix_fragment(channel_id, payload)
                 else:
                     # send responses to the mix chain
-                    handle_response(data)
-
-                # send responses to the mix chain
-                for packet in back_to_mix:
-                    r.sendto(packet, mix_addr)
-
-                # clear all sent responses
-                back_to_mix.clear()
+                    handle_response(r)
 
     except KeyboardInterrupt as kbi:
         print("Received Ctrl+C, quitting.")
