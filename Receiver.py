@@ -5,16 +5,17 @@ BUFFER_SIZE = 1024
 def get_tcp(ip_port):
     return Receiver(TCP, ip_port)
 
-def get_udp(ip_port):
-    return Receiver(UDP, ip_port)
+def get_udp(ip_port, blocking=True):
+    return Receiver(UDP, ip_port, blocking)
 
 class Receiver():
-    def __init__(self, sock_type, ip_port):
+    def __init__(self, sock_type, ip_port, blocking=True):
         self.type = sock_type
         self.addr = ip_port
         self.sock = None
         self.conn = None
         self.ret_addr = None
+        self.blocking = blocking
 
         self._setup()
 
@@ -23,6 +24,7 @@ class Receiver():
 
         self.sock = socket(AF_INET, self.type)
         self.sock.bind(self.addr)
+        self.sock.setblocking(self.blocking)
 
     def reset(self):
         self._setup()
@@ -70,6 +72,9 @@ class Receiver():
 
         self.sock = sock
         self.conn = sock
+
+    def fileno(self):
+        return self.sock.fileno()
 
     def __enter__(self):
         self.open()
