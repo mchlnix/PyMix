@@ -13,6 +13,27 @@ from TwoWayTable import TwoWayTable
 
 UDP_MTU = 65535
 
+MIN_PORT = 50000
+MAX_PORT = 60000
+
+def random_socket():
+    """Returns a Receiver object with a random port, that is not in use,
+    already."""
+
+    while True:
+        port = randint(MIN_PORT, MAX_PORT)
+
+        if port in ports:
+            # Port already in use by us
+            continue
+
+        try:
+            recv = get_udp_receiver(("127.0.0.1", port), blocking=False)
+            return recv
+        except OSError:
+            # Port already in use by another application
+            pass
+
 def handle_mix_fragment(chan_id, fragment):
     """Takes a mix fragment + channel id of the last mix and separates them.
        The mix fragment gets added to the fragment store and the destination ip
@@ -24,13 +45,16 @@ def handle_mix_fragment(chan_id, fragment):
 
     if chan_id not in sock_table.channel_ids:
         # a new udp channel was opened, save mapping and create Receiver
-        sock_table.socket[chan_id] = get_udp_receiver(("127.0.0.1", randint(50000, 60000)), blocking=False)#XXX
+        sock_table.socket[chan_id] = random_socket()
+
+        # register receiver to the socket selector
         sock_sel.register(sock_table.socket[chan_id], EVENT_READ)
 
     # send out the payload of completed MixMessages
     for message in store.completed():
         print(chan_id, "->", message.dest)
-        # get the receiver object to send the message out over
+
+        # get the receiver object to send the message out and send it
         sock_table.socket[chan_id].sendto(message.payload, message.dest)
 
     # remove sent out messages
@@ -98,6 +122,10 @@ if __name__ == "__main__":
     # look up table to map sockets to destinations
     sock_table = TwoWayTable("socket", "channel_id")
 
+    # list of ports, that are listening for responses
+    ports = []
+
+    # returns the sockets with data in them, without blocking
     sock_sel = DefaultSelector()
 
     sock_to_mix = get_udp_receiver(own_addr, blocking=False)
