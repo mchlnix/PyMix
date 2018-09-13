@@ -1,13 +1,13 @@
 #!/usr/bin/python3
 # standard library
 from random import randint
+from socket import socket, AF_INET, SOCK_DGRAM as UDP
 from argparse import ArgumentParser
 # third party
 from Crypto.Cipher import AES
 from Crypto.Random.random import StrongRandom
 # own
 from util import i2b, b2i
-from Receiver import get_udp as get_udp_receiver
 from MixMessage import FRAG_SIZE
 
 STORE_LIMIT = 1
@@ -121,7 +121,8 @@ if __name__ == "__main__":
     # if we get packets from there, they are responses and need to be sent
     # to the address of the associated channel id
     own_port = int(args.port)
-    incoming = get_udp_receiver(("localhost", own_port))
+    incoming = socket(AF_INET, UDP)
+    incoming.bind(("127.0.0.1", own_port))
 
     ip, port = getattr(args, "dest_ip:port").split(":")
     nexthop = (ip, int(port))
@@ -142,20 +143,14 @@ if __name__ == "__main__":
 
     while True:
         # listen for packets
-        packet = incoming.recv(CHAN_ID_SIZE + PACKET_SIZE)
-
-        if not packet:
-            print("Lost connection. Waiting for another connection.")
-            incoming.close()
-            incoming = get_udp_receiver(("localhost", int(args.port)))
-            continue
+        packet, addr = incoming.recvfrom(CHAN_ID_SIZE + PACKET_SIZE)
 
         # if the src addr of the last packet is the same as the addr of the
         # next hop, then this packet is a response, otherwise a mix fragment
-        if incoming.getaddr() == nexthop:
+        if addr == nexthop:
             handle_response(packet)
         else:
-            handle_mix_fragment(packet, incoming.getaddr())
+            handle_mix_fragment(packet, addr)
 
         # when store full, or time is right reorder store
         if len(packet_store) >= STORE_LIMIT:
@@ -164,7 +159,7 @@ if __name__ == "__main__":
             # flush store
             for packet, dest_addr in packet_store:
                 # use bound socket to send packets
-                incoming.getsock().sendto(packet, dest_addr)
+                incoming.sendto(packet, dest_addr)
 
             packet_store.clear()
 
