@@ -1,5 +1,6 @@
 #!/usr/bin/python3 -u
 # standard library
+from socket import socket, AF_INET, SOCK_DGRAM as UDP
 from argparse import ArgumentParser
 # third party
 from Crypto.Cipher import AES
@@ -7,7 +8,6 @@ from Crypto.Cipher import AES
 from Mix import PACKET_SIZE, random_channel_id, get_chan_id, get_packet
 from util import items_from_file, i2b, b2i, i2ip
 from util import parse_ip_port
-from Receiver import get_udp as get_udp_receiver
 from MixMessage import make_fragments, MixMessageStore
 from TwoWayTable import TwoWayTable
 
@@ -29,7 +29,7 @@ def get_outgoing_chan_id(src_addr, dest_addr):
 
     return chan_table.channel_id[addr_pair]
 
-def packets_from_mix_message(message, dest, channel_id):
+def packets_from_mix_message(message, dest, chan_id):
     """Takes a payload and a channel id and turns it into mix fragments ready
        to be sent out."""
     _packets = []
@@ -38,7 +38,7 @@ def packets_from_mix_message(message, dest, channel_id):
         for cipher in ciphers:
             packet = cipher.encrypt(packet)
 
-        _packets.append(i2b(channel_id, 2) + packet)
+        _packets.append(i2b(chan_id, 2) + packet)
 
     return _packets
 
@@ -54,7 +54,7 @@ def handle_mix_fragment(chan_id, fragment):
         dest_addr, _ = chan_table.addr_pair[chan_id]
 
         print("Sending", len(mix_msg.payload), "bytes to", dest_addr)
-        r.sendto(mix_msg.payload, dest_addr)
+        sock_to_mix.sendto(mix_msg.payload, dest_addr)
 
     store.remove_completed()
 
@@ -67,7 +67,7 @@ def handle_request(request, src_addr):
     chan_id = get_outgoing_chan_id(src_addr, dest_addr)
     chan_table.addr_pair[chan_id] = (src_addr, dest_addr)
 
-    print(len(request)-6, "b:", r.getaddr(), chan_id, "-> mix")
+    print(len(request)-6, "b:", src_addr, chan_id, "-> mix")
 
     packets.extend(packets_from_mix_message(request[6:], dest_addr, chan_id))
 
@@ -108,23 +108,25 @@ if __name__ == "__main__":
     # get own ip and port
     own_addr = parse_ip_port(getattr(args, OWN_ADDR_ARG))
 
+    sock_to_mix = socket(AF_INET, UDP)
+    sock_to_mix.bind(own_addr)
+
     # connect to first mix
-    with get_udp_receiver(own_addr) as r:
-        print("Listening on {}:{}.".format(*own_addr))
-        while True:
-            data = r.recv(UDP_MTU)
+    print("Listening on {}:{}.".format(*own_addr))
+    while True:
+        data, addr = sock_to_mix.recvfrom(UDP_MTU)
 
-            if r.getaddr() == mix_addr:
-                # Got a response through the mixes
-                assert len(data) == PACKET_SIZE
-                channel_id = get_chan_id(data)
-                payload = get_packet(data)
-                handle_mix_fragment(channel_id, payload)
-            else:
-                # got a request to send through the mixes
-                handle_request(data, r.getaddr())
+        if addr == mix_addr:
+            # Got a response through the mixes
+            assert len(data) == PACKET_SIZE
+            channel_id = get_chan_id(data)
+            payload = get_packet(data)
+            handle_mix_fragment(channel_id, payload)
+        else:
+            # got a request to send through the mixes
+            handle_request(data, addr)
 
-            for packet in packets:
-                r.sendto(packet, mix_addr)
+        for packet in packets:
+            sock_to_mix.sendto(packet, mix_addr)
 
-            packets.clear()
+        packets.clear()
