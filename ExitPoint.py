@@ -1,4 +1,8 @@
 #!/usr/bin/python3
+"""The ExitPoint gets mix fragments from a mix and assembles them into complete
+mix messages. Their payloads are sent to the destination from a fixed random
+so that the destination can respond to it. Responses to that port get broken
+up into fragments and sent back over the udp channel/mix chain."""
 # standard library
 from random import randint
 from socket import socket, AF_INET, SOCK_DGRAM as UDP
@@ -10,6 +14,8 @@ from util import i2b
 from util import parse_ip_port
 from MixMessage import MixMessageStore, make_fragments
 from TwoWayTable import TwoWayTable
+
+# pylint: disable=E1101
 
 UDP_MTU = 65535
 
@@ -46,8 +52,10 @@ def handle_mix_fragment(packet):
     chan_id = get_chan_id(packet)
     fragment = get_packet(packet) # TODO: rename
 
+    # add fragment to the mix message store
     parsed_frag = store.parse_fragment(fragment)
 
+    # is this the first fragment from this channel?
     if chan_id not in sock_table.channel_ids:
         # a new udp channel was opened, save mapping and create socket
         sock_table.socket[chan_id] = random_socket()
@@ -73,7 +81,7 @@ def handle_mix_fragment(packet):
         # send complete mix message to the destination
         sock.send(mix_message.payload)
 
-    # remove sent out messages
+    # remove sent messages
     store.remove_completed()
 
 
@@ -96,6 +104,7 @@ def handle_response(sock):
     # get the response through the channel id and will know where to send it
     mix_frags = make_fragments(response, *("0.0.0.0", 0)) #TODO change to tuple
 
+    # append channel id to the fragments
     for frag in mix_frags:
         sock_to_mix.send(i2b(chan_id, CHAN_ID_SIZE) + frag)
 
@@ -129,6 +138,7 @@ if __name__ == "__main__":
     # returns the sockets with data in them, without blocking
     sock_sel = DefaultSelector()
 
+    # the socket the mix sends fragments to
     sock_to_mix = socket(AF_INET, UDP)
     sock_to_mix.bind(own_addr)
     sock_to_mix.setblocking(False)
