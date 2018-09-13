@@ -1,7 +1,15 @@
 #!/bin/bash
 
+TERMINAL=xterm
+TERM_OPS="-e"
+
+if type xfce4-terminal; then
+    TERMINAL=xfce4-terminal
+    TERM_OPS="-H -e"
+fi
+
 for port in 60001 60002 60003 60004 60005; do
-    xfce4-terminal -T "Receiver" -H -e "../UDP_POC/Recv.py 127.0.0.1:$port"
+    $TERMINAL -T "Receiver" $TERM_OPS "./Recv.py 127.0.0.1:$port"
 done
 
-xfce4-terminal -T "Sender" -H -e "./Test_Client.py"
+$TERMINAL -T "Sender" $TERM_OPS "./Test_Client.py"

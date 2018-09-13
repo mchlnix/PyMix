@@ -1,26 +1,35 @@
 #!/bin/bash
 
 IP=127.0.0.1
-TERM_OPS="-H -e"
 
 ENTRY_POINT_PORT=20000
 
 MIX_INDEX=1
 MIX_PORT=20001
 
+TERMINAL=xterm
+TERM_OPS="-e"
+
+if type xfce4-terminal; then
+    TERMINAL=xfce4-terminal
+    TERM_OPS="-H -e"
+fi
+
 # start entry point
-xfce4-terminal -T EntryPoint.py -H -e "./EntryPoint.py $IP:$ENTRY_POINT_PORT $IP:$MIX_PORT keyfile"
+$TERMINAL -T EntryPoint.py $TERM_OPS "./EntryPoint.py $IP:$ENTRY_POINT_PORT $IP:$MIX_PORT keyfile" &
 
 # start mixes 
 for key in $(cat keyfile); do
-    xfce4-terminal -T "Mix.py $MIX_INDEX" $TERM_OPS "./Mix.py -of $((MIX_INDEX++)) $(( MIX_PORT++ )) $IP:$MIX_PORT keyfile"
+    $TERMINAL -T "Mix.py $MIX_INDEX" $TERM_OPS "./Mix.py -of $MIX_INDEX $MIX_PORT $IP:$((MIX_PORT+1)) keyfile" &
+    : $((MIX_INDEX++))
+    : $((MIX_PORT++))
 done 
 
 # start exit point
 RECV_PORT=$MIX_PORT
-xfce4-terminal -T ExitPoint.py $TERM_OPS "./ExitPoint.py $IP:$RECV_PORT"
+$TERMINAL -T ExitPoint.py $TERM_OPS "./ExitPoint.py $IP:$RECV_PORT" &
 
 if [ -n "$1" ]; then
-    xfce4-terminal -T "Recv.py 40000" $TERM_OPS "../UDP_POC/Recv.py $IP:40000"
-    PYTHONSTARTUP=startupfile python3
+    $TERMINAL -T "Recv.py 40000" $TERM_OPS "./Recv.py $IP:40000" &
+    PYTHONSTARTUP=startupfile python3 &
 fi
