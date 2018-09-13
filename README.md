@@ -41,3 +41,20 @@ The lack of connectivity of UDP presents some challenges not present, when worki
 This project is first and foremost an academic learning example. I'm using it to get a feel for what protocol specifications are necessary to make anonymous UDP communication over mix chains possible in the first place, which challenges are hidden in the details and how to cleanly write an implementation, that does not hide the elementary principles behind code clutter.
 
 Performance of the language is not a major concern as long as it does not hinder the comparison of performance of different protocol approaches.
+
+## Which dependencies does it have?
+
+I'm using `Python 3.5`. The only third party library in use is [PyCryptoDome](https://github.com/Legrandin/pycryptodome). Install it as a replacement for PyCrypto as described in their README.md.
+
+## How can I test it?
+
+You can run `make test` in your terminal, which will open a lot of terminal windows.
+5 for Destinations called "Receiver"
+1 for an ExitPoint
+3 for Mixes
+1 for an EntryPoint
+1 for a Sender, which sends messages for destinations to the Entrypoint, which repackages, encrypts them for the mix chain. messages get sent over the mix chain to the exit point, which relays them to the Receivers.
+
+The Sender sends "Hello" 10 times to the Receivers randomly. Every Receiver response with "Got Message. Thanks!", which are transmitted over the ExitPoint, over the Mixes, over the EntryPoint back to the Sender.
+
+If you don't have `xfce4-terminal` installed, you can change both start_\*.sh files. `xterm` is a fallback, but for some reason it does not seem to work with it.
