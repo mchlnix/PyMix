@@ -1,9 +1,11 @@
 #!/usr/bin/python3
 from random import randint, choice
-from Receiver import get_udp
+from socket import socket, AF_INET, SOCK_DGRAM as UDP
 from util import i2b, ip2i
 
-requests = ["Hello"]*10
+num_of_requests = 10
+
+requests = ["Hello"]*num_of_requests
 
 dest_ports = [60001, 60002, 60003, 60004, 60005]
 
@@ -17,20 +19,21 @@ if __name__ == "__main__":
     ip = "127.0.0.1"
     port = randint(50000, 59999)
 
-    with get_udp((ip, port)) as r:
-        # send requests to predetermined destinations
-        for payload in requests:
-            dest_port = choice(dest_ports)
+    sock = socket(AF_INET, UDP)
+    sock.bind(("127.0.0.1", port))
 
-            print("Sending to", dest_port)
-            r.sendto(header(ip, dest_port) + payload.encode("utf-8"),
-                     entry_addr)
+    print("Sending from", ip, port)
 
-# wait for responses and check with what we expected
-        while True:
-            data = r.recv()
+    # send requests to predetermined destinations
+    for payload in requests:
+        dest_port = choice(dest_ports)
 
-            print(r.getaddr(), data)
+        print("Sending to", dest_port)
+        sock.sendto(header(ip, dest_port) + payload.encode("utf-8"),
+                 entry_addr)
 
-    
+    # wait for responses and check with what we expected
+    while True:
+        data, addr = sock.recvfrom(4096)
 
+        print(addr, data)
