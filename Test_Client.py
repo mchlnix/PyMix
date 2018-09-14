@@ -12,7 +12,7 @@ dest_ports = [60001, 60002, 60003, 60004, 60005]
 entry_addr = ("127.0.0.1", 20000)
 
 def header(ip, port):
-    return i2b(ip2i(ip), 4) + i2b(port,2)
+    return i2b(ip2i(ip), 4) + i2b(port, 2)
 
 if __name__ == "__main__":
     # get a receiver with a random port in the 5xxxx
@@ -30,7 +30,7 @@ if __name__ == "__main__":
 
         print("Sending to", dest_port)
         sock.sendto(header(ip, dest_port) + payload.encode("utf-8"),
-                 entry_addr)
+                    entry_addr)
 
     # wait for responses and check with what we expected
     while True:

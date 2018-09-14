@@ -26,7 +26,7 @@ Example:
 """
 
 class TwoWayTable():
-    def __init__(self, key_name, value_name, *, 
+    def __init__(self, key_name, value_name, *,
                  keylist_name=None, valuelist_name=None):
         """Creates synchronized dictionaries as member variables of this
         object under the given names. If no list names are supplied the keys
