@@ -9,7 +9,7 @@ from socket import socket, AF_INET, SOCK_DGRAM as UDP
 from argparse import ArgumentParser as AP
 from selectors import DefaultSelector, EVENT_READ
 # own
-from Mix import PACKET_SIZE, CHAN_ID_SIZE, get_chan_id, get_packet
+from Mix import PACKET_SIZE, CHAN_ID_SIZE, get_chan_id, get_payload
 from util import i2b
 from util import parse_ip_port
 from MixMessage import MixMessageStore, make_fragments
@@ -50,7 +50,7 @@ def handle_mix_fragment(packet):
        will be sent out over their sockets."""
 
     chan_id = get_chan_id(packet)
-    fragment = get_packet(packet) # TODO: rename
+    fragment = get_payload(packet)
 
     # add fragment to the mix message store
     parsed_frag = store.parse_fragment(fragment)

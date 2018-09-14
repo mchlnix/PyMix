@@ -27,8 +27,8 @@ def get_chan_id(payload):
     """Reads the channel id of a given packet and returns it as an integer."""
     return b2i(payload[0:CHAN_ID_SIZE])
 
-def get_packet(payload):
-    return payload[CHAN_ID_SIZE:]
+def get_payload(packet):
+    return packet[CHAN_ID_SIZE:]
 
 def get_outgoing_chan_id(in_chan_id):
     """Looks up the associated outgoing channel id of the given incoming

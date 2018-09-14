@@ -5,7 +5,7 @@ from argparse import ArgumentParser
 # third party
 from Crypto.Cipher import AES
 # own
-from Mix import PACKET_SIZE, random_channel_id, get_chan_id, get_packet
+from Mix import PACKET_SIZE, random_channel_id, get_chan_id, get_payload
 from util import items_from_file, i2b, b2i, i2ip
 from util import parse_ip_port
 from MixMessage import make_fragments, MixMessageStore
@@ -120,7 +120,7 @@ if __name__ == "__main__":
             # Got a response through the mixes
             assert len(data) == PACKET_SIZE
             channel_id = get_chan_id(data)
-            payload = get_packet(data)
+            payload = get_payload(data)
             handle_mix_fragment(channel_id, payload)
         else:
             # got a request to send through the mixes
