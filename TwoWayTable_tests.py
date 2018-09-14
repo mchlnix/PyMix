@@ -46,7 +46,7 @@ assert ip not in twt.ips
 
 del twt
 
-## Test that the keys in the dicts are not limited by each other
+# Test that the keys in the dicts are not limited by each other
 
 in_chan_a = 12345
 out_chan_a = 54321

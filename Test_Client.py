@@ -12,8 +12,10 @@ dest_ports = [60001, 60002, 60003, 60004, 60005]
 
 entry_addr = ("127.0.0.1", 20000)
 
+
 def header(ip, port):
     return i2b(ip2i(ip), 4) + i2b(port, 2)
+
 
 if __name__ == "__main__":
     # get a receiver with a random port in the 5xxxx

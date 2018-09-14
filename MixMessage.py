@@ -20,7 +20,7 @@ FRAG_SIZE = 992
 ID_SIZE = 4
 
 FRAG_COUNT_SIZE = 1
-FRAG_INDEX_SIZE = FRAG_COUNT_SIZE # have to stay equal
+FRAG_INDEX_SIZE = FRAG_COUNT_SIZE  # have to stay equal
 PADDING_SIZE = 2
 
 DEST_IP_SIZE = 4
@@ -36,8 +36,9 @@ MAX_FRAG_COUNT = 2**(FRAG_COUNT_SIZE*8)-1
 HIGHEST_ID = 2**(ID_SIZE * 8) - 1
 LOWEST_ID = 1
 
+
 def make_fragments(packet, dest_addr):
-# how many fragments will be necessary
+    # how many fragments will be necessary
     dest_ip, dest_port = dest_addr
     frag_count = fragments(packet, PAYLOAD_SIZE)
 
@@ -45,7 +46,7 @@ def make_fragments(packet, dest_addr):
         raise IndexError("Message too large.", frag_count,
                          "fragments necessary, limit is", MAX_FRAG_COUNT)
 
-# how many padding bytes will be necessary
+    # how many padding bytes will be necessary
     pad_len = 0
 
     if (len(packet) % PAYLOAD_SIZE) != 0:
@@ -53,10 +54,10 @@ def make_fragments(packet, dest_addr):
         packet = padded(packet, blocksize=PAYLOAD_SIZE)
         pad_len = len(packet) - old_len
 
-# get a random packet id
+    # get a random packet id
     packet_id = randint(LOWEST_ID, HIGHEST_ID)
 
-# assemble fragments
+    # assemble fragments
     frags = []
     for frag_index, fragment in enumerate(fragmented(packet, PAYLOAD_SIZE)):
         frag = []
@@ -72,12 +73,14 @@ def make_fragments(packet, dest_addr):
 
     return frags
 
+
 def _read_int(data, start, length):
     """Reads length bytes from start in data. Returns a tuple of the extracted
        bytes as an integer and the position where the reading stopped."""
     stop = start + length
 
     return b2i(data[start:stop]), stop
+
 
 class MixMessageStore():
     def __init__(self):
@@ -122,6 +125,7 @@ class MixMessageStore():
         for msg_id in msg_ids:
             self.remove(msg_id)
 
+
 class MixMessage():
     def __init__(self, msg_id):
         self.fragments = dict()
@@ -129,12 +133,14 @@ class MixMessage():
         self.frag_count = 0
         self.dest = ("-1.-1.-1.-1", -1)
         self.pad_size = 0
+        self.payload_size = 0
 
     def add_fragment(self, frag_index, payload):
         if frag_index in self.fragments:
             return
 
         self.fragments[frag_index] = payload
+        self.payload_size = self.frag_count * PAYLOAD_SIZE - self.pad_size
 
     @property
     def complete(self):
@@ -157,8 +163,9 @@ class MixMessage():
     def __str__(self):
         ret = ""
         ret += "MixMessage:  {}\n".format(self.id)
-        ret += "Fragments:   {}/{}\n".format(len(self.fragments), self.frag_count)
-        ret += "Size:        {}\n".format(self.frag_count*PAYLOAD_SIZE-self.pad_size)
+        ret += "Fragments:   {}/{}\n".format(len(self.fragments),
+                                             self.frag_count)
+        ret += "Size:        {}\n".format(self.payload_size)
         ret += "Padding:     {}\n".format(self.pad_size)
         ret += "Destination: {}:{}\n".format(*self.dest)
 
@@ -167,4 +174,3 @@ class MixMessage():
             ret += "Payload:     {}...\n".format(payload)
 
         return ret
-

@@ -19,13 +19,14 @@ OWN_ADDR_ARG = "own_ip:port"
 MIX_ADDR_ARG = "mix_ip:port"
 KEYFILE_ARG = "keyfile"
 
+
 class EntryPoint():
-    """The EntryPoint connects Clients with the mix chain. It takes regular packets
-    with a custom header (dest. ip and port) and parses them into mix fragments.
-    These fragments are send to an ExitPoint over the mix chain, where they are
-    reassembled and then sent to the actual destination.
-    Responses that come in over the mix chain are reassembled here as well and sent
-    to the clients that are responded to."""
+    """The EntryPoint connects Clients with the mix chain. It takes regular
+    packets with a custom header (dest. ip and port) and parses them into mix
+    fragments. These fragments are send to an ExitPoint over the mix chain,
+    where they are reassembled and then sent to the actual destination.
+    Responses that come in over the mix chain are reassembled here as well and
+    sent to the clients that are responded to."""
     def __init__(self, listen_addr, addr_to_mix):
         # where to listen on
         self.own_addr = listen_addr
@@ -102,7 +103,8 @@ class EntryPoint():
     def handle_request(self, request, src_addr):
         """Takes a message and the source address it came from. The destination
         header is cut off, parsed and mapped to a channel. Then the payload is
-        separated into mix fragments and sent out with the channel id in front."""
+        separated into mix fragments and sent out with the channel id in front.
+        """
         dest_ip, dest_port = b2i(request[0:4]), b2i(request[4:6])
         dest_ip = i2ip(dest_ip)
 
@@ -141,7 +143,8 @@ class EntryPoint():
 if __name__ == "__main__":
     ap = ArgumentParser()
 
-    ap.add_argument(OWN_ADDR_ARG, help="ip and port, to listen for packets on.")
+    ap.add_argument(OWN_ADDR_ARG, help="ip and port, to listen for packets" +
+                    "on.")
     ap.add_argument(MIX_ADDR_ARG, help="ip and port of the mix.")
     ap.add_argument(KEYFILE_ARG, help="file with keys to encrypt the " +
                     "payloads with. Will be read line by line. Keys are " +

@@ -1,6 +1,7 @@
 # pylint: disable=E1101,R0903
 """TwoWayTable - A better bijective Map"""
 
+
 class TwoWayTable():
     """A TwoWayTable is a way to keep two dictionaries synchronized with each
     other. It aims to be a bijective mapping, without the problem of
@@ -56,6 +57,7 @@ class TwoWayTable():
         """Returns the values of the first dictionary/the keys of the second
         dictionary"""
         return self.dict1.values()
+
 
 class PairedDict():
     """Saves the keys and values of the wrapped dict as values and keys in the

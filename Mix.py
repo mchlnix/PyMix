@@ -20,15 +20,19 @@ MAX_CHAN_ID = 2**(8*CHAN_ID_SIZE)-1
 
 PACKET_SIZE = CHAN_ID_SIZE + FRAG_SIZE
 
+
 def random_channel_id():
     return randint(MIN_CHAN_ID, MAX_CHAN_ID)
+
 
 def get_chan_id(payload):
     """Reads the channel id of a given packet and returns it as an integer."""
     return b2i(payload[0:CHAN_ID_SIZE])
 
+
 def get_payload(packet):
     return packet[CHAN_ID_SIZE:]
+
 
 def get_outgoing_chan_id(in_chan_id):
     """Looks up the associated outgoing channel id of the given incoming
@@ -42,8 +46,8 @@ def get_outgoing_chan_id(in_chan_id):
         print("New connection:", in_chan_id, "->", random_out_id)
         chan_table.out_channel[in_chan_id] = random_out_id
 
-
     return chan_table.out_channel[in_chan_id]
+
 
 def handle_mix_fragment(payload, source):
     """Handles a message coming in from a client to be sent over the mix chain
@@ -67,6 +71,7 @@ def handle_mix_fragment(payload, source):
     # store packet
     packet_store.append((plain, nexthop))
 
+
 def handle_response(payload):
     """Handles a message, that came as a response to an initially made request.
     This means, that there should already be a channel established, since
@@ -88,11 +93,11 @@ def handle_response(payload):
 
 # pylint: disable=C0103
 if __name__ == "__main__":
-    ap = ArgumentParser(description=
-                        "Very simple mix implementation in python.")
+    ap = ArgumentParser(description="Very simple mix implementation in " +
+                        "python.")
     ap.add_argument("position", help="the index of the mix in the chain, 1-n.")
     ap.add_argument("port", help="the port to listen for incoming packets.")
-    ap.add_argument("dest_ip:port", help="ip address pair to send decrypted "+
+    ap.add_argument("dest_ip:port", help="ip address pair to send decrypted " +
                     "packets to. ex. 127.0.0.1:12345")
     ap.add_argument("keyfile", help="the file to read the key from.")
     ap.add_argument("-of", "--onefile", help="read the nth line from the" +
@@ -161,4 +166,3 @@ if __name__ == "__main__":
                 incoming.sendto(packet, dest_addr)
 
             packet_store.clear()
-

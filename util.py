@@ -5,11 +5,13 @@ from math import ceil
 
 BYTE_ORDER = "big"
 
+
 def b2i(int_in_bytes):
     """Takes a sequence of bytes and returns the integer they represent read in
     big endian order."""
 
     return int.from_bytes(int_in_bytes, byteorder=BYTE_ORDER)
+
 
 def i2b(integer, length):
     """Takes an integer and returns length amount of bytes of the big endian
@@ -26,6 +28,7 @@ def i2ip(integer):
     _bytes = i2b(integer, 4)
     return ".".join(str(byte) for byte in _bytes)
 
+
 def ip2i(ip_str):
     """Takes an IPv4 in the octet form of 255.255.255.255 and returns its
     integer representation by adding it up byte by byte."""
@@ -39,6 +42,7 @@ def ip2i(ip_str):
 
     return ret_int
 
+
 def parse_ip_port(ip_port):
     """Takes a string in the form of ipv4:port and returns a tuple suitable for
        use with sockets; (str, int)."""
@@ -46,6 +50,7 @@ def parse_ip_port(ip_port):
     port = int(port)
 
     return (ip, port)
+
 
 def padded(packet, blocksize):
     """Appends the byte for the character 'p' to the end of the packet, until
@@ -69,6 +74,7 @@ def padded(packet, blocksize):
 
     return packet
 
+
 def prependlength(packet):
     """Prepends the length of the packet to the packet and returns it."""
 
@@ -80,6 +86,7 @@ def prependlength(packet):
 
     return bytes(4-len(lenbytes))+lenbytes+packet
 
+
 def items_from_file(filepath):
     """Reads the given file and returns a list of lines, without the new line
     character. All other whitespace within the lines is preserved."""
@@ -89,6 +96,7 @@ def items_from_file(filepath):
 
     return items
 
+
 def partitions(sequence, part_size):
     """Returns the number of chunks of the given size that could be filled by
     taking from sequence. If the sequence is empty 0 will be returned."""
@@ -97,6 +105,7 @@ def partitions(sequence, part_size):
         raise ValueError("Partition size can't be less than 1.")
 
     return int(ceil(len(sequence) / float(part_size)))
+
 
 def partitioned(sequence, part_size):
     """Returns a list of chunks with the given length extracted from the given
@@ -110,6 +119,7 @@ def partitioned(sequence, part_size):
         parts.append(sequence[index:index + part_size])
 
     return parts
+
 
 def byte_len(integer):
     """Returns the number of bytes necessary to express the given integer

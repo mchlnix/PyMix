@@ -22,6 +22,7 @@ UDP_MTU = 65535
 MIN_PORT = 50000
 MAX_PORT = 60000
 
+
 def random_socket():
     """Returns a socket bound to a random port, that is not in use already."""
 
@@ -42,6 +43,7 @@ def random_socket():
             # Port already in use by another application, try a new one
             pass
 
+
 def handle_mix_fragment(packet):
     """The mix fragment gets added to the fragment store. If the channel id is
        not already known a socket will be created for the destination of the
@@ -60,7 +62,8 @@ def handle_mix_fragment(packet):
         # a new udp channel was opened, save mapping and create socket
         sock_table.socket[chan_id] = random_socket()
 
-        # make sure we only listen to the (eventual) destination of the mix message
+        # make sure we only listen to the (eventual) destination of the mix
+        # message
         sock_table.socket[chan_id].connect(parsed_frag.dest)
 
         # register socket to the socket selector
@@ -112,8 +115,8 @@ def handle_response(sock):
 if __name__ == "__main__":
     parser = AP(description="Receives data on the specified ip:port using " +
                 "UDP and prints it on stdout.")
-    parser.add_argument("ip:port", help=
-                        "IP and Port pair to listen for datagrams on")
+    parser.add_argument("ip:port", help="IP and Port pair to listen for " +
+                        "datagrams on")
 
     args = parser.parse_args()
 

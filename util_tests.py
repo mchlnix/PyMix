@@ -3,7 +3,7 @@
 
 from util import padded, partitions, partitioned
 
-## padded
+# padded
 try:
     padded([1, 2, 3, 4], 0)
     raise AssertionError("Expected ValueError")
@@ -25,7 +25,7 @@ assert len(padded([], 2)) == 2
 assert len(padded([1, 2, 3, 4], 16)) == 16
 assert len(padded([1, 2, 3, 4], 3)) == 6
 
-## partitions
+# partitions
 try:
     partitions([1, 2, 3, 4], 0)
     raise AssertionError("Expected ValueError")
@@ -54,7 +54,7 @@ assert partitions([1, 2, 3, 4], 3) == 2
 
 assert partitions([], 1) == 0
 
-## partitioned
+# partitioned
 
 try:
     partitioned([1, 2, 3, 4], 0)
