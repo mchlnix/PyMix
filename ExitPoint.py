@@ -157,6 +157,7 @@ if __name__ == "__main__":
                     packet, mix_addr = sock.recvfrom(UDP_MTU)
                     sock.connect(mix_addr)
                     handle_mix_fragment(packet)
+                    continue
 
                 if sock == sock_to_mix:
                     # collect mix fragments
