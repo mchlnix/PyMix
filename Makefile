@@ -9,3 +9,7 @@ test: chain
 .PHONY: manual
 manual:
 	bash start_chain manual
+
+.PHONY: lint
+lint:
+	pylint3 --rcfile pylint3.cfg *.py
