@@ -1,4 +1,5 @@
 #!/usr/bin/python3 -u
+# pylint: disable=C0111
 from TwoWayTable import TwoWayTable, PairedDict
 
 key = "Key"
