@@ -102,7 +102,7 @@ def handle_response(sock):
 
     # we don't know the actual ip:port of the recipient. the EntryPoint will
     # get the response through the channel id and will know where to send it
-    mix_frags = make_fragments(response, *("0.0.0.0", 0)) #TODO change to tuple
+    mix_frags = make_fragments(response, ("0.0.0.0", 0))
 
     # append channel id to the fragments
     for frag in mix_frags:

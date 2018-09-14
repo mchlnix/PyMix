@@ -33,7 +33,7 @@ def packets_from_mix_message(message, dest, chan_id):
     """Takes a payload and a channel id and turns it into mix fragments ready
        to be sent out."""
     _packets = []
-    for frag in make_fragments(message, *dest):
+    for frag in make_fragments(message, dest):
         packet = frag
         for cipher in ciphers:
             packet = cipher.encrypt(packet)

@@ -36,8 +36,9 @@ MAX_FRAG_COUNT = 2**(FRAG_COUNT_SIZE*8)-1
 HIGHEST_ID = 2**(ID_SIZE * 8) - 1
 LOWEST_ID = 1
 
-def make_fragments(packet, dest_ip, dest_port):
+def make_fragments(packet, dest_addr):
 # how many fragments will be necessary
+    dest_ip, dest_port = dest_addr
     frag_count = fragments(packet, PAYLOAD_SIZE)
 
     if frag_count > MAX_FRAG_COUNT:
