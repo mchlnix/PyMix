@@ -1,4 +1,10 @@
 #!/usr/bin/python3 -u
+"""The EntryPoint connects Clients with the mix chain. It takes regular packets
+with a custom header (dest. ip and port) and parses them into mix fragments.
+These fragments are send to an ExitPoint over the mix chain, where they are
+reassembled and then sent to the actual destination.
+Responses that come in over the mix chain are reassembled here as well and sent
+to the clients that are responded to."""
 # standard library
 from socket import socket, AF_INET, SOCK_DGRAM as UDP
 from argparse import ArgumentParser
@@ -18,6 +24,8 @@ MIX_ADDR_ARG = "mix_ip:port"
 KEYFILE_ARG = "keyfile"
 
 def get_outgoing_chan_id(src_addr, dest_addr):
+    """Get the channel id for a src and dest address pair, or generate one, if
+    the channel is new."""
     addr_pair = (src_addr, dest_addr)
     if addr_pair not in chan_table.addr_pairs:
         random_id = random_channel_id()
@@ -43,6 +51,8 @@ def packets_from_mix_message(message, dest, chan_id):
     return _packets
 
 def handle_mix_fragment(chan_id, fragment):
+    """Takes a mix fragment and the channel id it came from. This represents a
+    part of a response that was send back through the mix chain."""
     print(len(fragment), "b: client <-", chan_id, "mix")
     for cipher in reversed(ciphers):
         fragment = cipher.decrypt(fragment)
@@ -59,6 +69,9 @@ def handle_mix_fragment(chan_id, fragment):
     store.remove_completed()
 
 def handle_request(request, src_addr):
+    """Takes a message and the source address it came from. The destination
+    header is cut off, parsed and mapped to a channel. Then the payload is
+    separated into mix fragments and sent out with the channel id in front."""
     dest_ip, dest_port = b2i(request[0:4]), b2i(request[4:6])
     dest_ip = i2ip(dest_ip)
 
