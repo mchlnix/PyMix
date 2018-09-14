@@ -9,6 +9,7 @@ from Crypto.Random.random import StrongRandom
 # own
 from util import i2b, b2i
 from MixMessage import FRAG_SIZE
+from TwoWayTable import TwoWayTable
 
 STORE_LIMIT = 1
 
@@ -29,21 +30,20 @@ def get_chan_id(payload):
 def get_packet(payload):
     return payload[CHAN_ID_SIZE:]
 
-def get_outgoing_chan_id(chan_id):
+def get_outgoing_chan_id(in_chan_id):
     """Looks up the associated outgoing channel id of the given incoming
     channel id and returns it. If not found one will be generated."""
-    if chan_id not in in2out:
-        random_id = random_channel_id()
-        while random_id in out2in:
+    if in_chan_id not in chan_table.in_channels:
+        random_out_id = random_channel_id()
+        while random_out_id in chan_table.out_channels:
             # if channel id is already taken
-            random_id = random_channel_id()
+            random_out_id = random_channel_id()
 
-        print("New connection:", chan_id, "->", random_id)
-        in2out[chan_id] = random_id
-        out2in[random_id] = chan_id
+        print("New connection:", in_chan_id, "->", random_out_id)
+        chan_table.out_channel[in_chan_id] = random_out_id
 
 
-    return in2out[chan_id]
+    return chan_table.out_channel[in_chan_id]
 
 def handle_mix_fragment(payload, source):
     """Handles a message coming in from a client to be sent over the mix chain
@@ -75,7 +75,7 @@ def handle_response(payload):
     # map the out going id, we gave the responder to the incoming id the packet
     # had, then get the src ip for that channel id
     out_id = get_chan_id(payload)
-    in_id = out2in[out_id]
+    in_id = chan_table.in_channel[out_id]
     dest = inchan2ip[in_id]
 
     print(in_id, "<-", out_id)
@@ -134,8 +134,7 @@ if __name__ == "__main__":
 
     # channel table, which maps incoming channels to outgoing channels
     # and vice versa
-    in2out = {}
-    out2in = {}
+    chan_table = TwoWayTable("in_channel", "out_channel")
 
     # table of channel ids mapped to the ip:port they came from. used for
     # responses, so they are sent to the right recipient
