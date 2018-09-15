@@ -2,6 +2,7 @@
    They mostly focus on sequence and byte manipulation or mask internal
    builtin functionality, when it was not convenient enough to use."""
 from math import ceil
+from Crypto.Random import get_random_bytes
 
 BYTE_ORDER = "big"
 
@@ -70,7 +71,8 @@ def padded(packet, blocksize):
         if too_many:
             to_pad = blocksize - too_many
 
-    packet += ('p'*to_pad).encode("ascii")
+    if to_pad:
+        packet += get_random_bytes(to_pad)
 
     return packet
 

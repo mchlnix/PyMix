@@ -17,13 +17,10 @@ except ValueError:
     pass
 
 # lists
-assert padded([], 2) == [ord('p'), ord('p')]
-assert padded([1], 2) == [1, ord('p')]
-assert padded([1, 1], 2) == [1, 1]
-
 assert len(padded([], 2)) == 2
 assert len(padded([1, 2, 3, 4], 16)) == 16
 assert len(padded([1, 2, 3, 4], 3)) == 6
+assert len(padded([1, 2, 3, 4], 4)) == 4
 
 # partitions
 try:
