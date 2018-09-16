@@ -8,6 +8,7 @@ from Crypto.Cipher import AES
 from Crypto.Random.random import StrongRandom
 # own
 from util import i2b, b2i, get_random_bytes
+from Ciphers.CBC import default_cipher
 from MixMessage import FRAG_SIZE
 from TwoWayTable import TwoWayTable
 
@@ -21,21 +22,6 @@ MAX_CHAN_ID = 2**(8*CHAN_ID_SIZE)-1
 EXPLICIT_IV_SIZE = AES.block_size
 
 PACKET_SIZE = CHAN_ID_SIZE + FRAG_SIZE + EXPLICIT_IV_SIZE
-
-
-def decrypt_fragment(ciphers, fragment):
-    for cipher in ciphers:
-        fragment = cipher.decrypt(fragment)[EXPLICIT_IV_SIZE:]
-
-    return fragment
-
-
-def encrypt_fragment(ciphers, fragment):
-    for cipher in ciphers:
-        fragment = cipher.encrypt(get_random_bytes(EXPLICIT_IV_SIZE) +
-                                  fragment)
-
-    return fragment
 
 
 def random_channel_id():
@@ -83,7 +69,7 @@ def handle_mix_fragment(payload, source):
 
     # decrypt payload and add new channel id
     plain = (i2b(out_id, CHAN_ID_SIZE) +
-             decrypt_fragment([decryptor], payload[CHAN_ID_SIZE:]))
+             cipher.decrypt(payload[CHAN_ID_SIZE:]))
 
     print(in_id, "->", out_id, "Len:", len(plain))
 
@@ -104,7 +90,7 @@ def handle_response(payload):
 
     # encrypt the payload and add the original channel id
     cipher_text = (i2b(in_id, CHAN_ID_SIZE) +
-                   encrypt_fragment([encryptor], payload[CHAN_ID_SIZE:]))
+                   cipher.encrypt(payload[CHAN_ID_SIZE:]))
 
     print(in_id, "<-", out_id, "Len:", len(cipher_text))
 
@@ -138,8 +124,7 @@ if __name__ == "__main__":
     # set up crypto
     # decrypt for messages from a client
     # encrypt for responses to the client
-    encryptor = AES.new(key.encode("ascii"), AES.MODE_CBC)
-    decryptor = AES.new(key.encode("ascii"), AES.MODE_CBC)
+    cipher = default_cipher([key])
 
     # create sockets
     # the 'port' arg is which one to listen and send datagrams from

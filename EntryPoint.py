@@ -7,8 +7,7 @@ from argparse import ArgumentParser
 # third party
 from Crypto.Cipher import AES
 # own
-from Mix import random_channel_id, get_chan_id, get_payload
-from Mix import encrypt_fragment, decrypt_fragment
+from Mix import random_channel_id, get_chan_id, get_payload, default_cipher
 from util import items_from_file, i2b, b2i, i2ip
 from util import parse_ip_port
 from MixMessage import make_fragments, MixMessageStore
@@ -45,17 +44,14 @@ class EntryPoint():
         self.packets = []
 
         # list of the ciphers to apply to mix messages in correct order
-        self.encryptors = []
-        self.decryptors = []
+        self.cipher = None
 
         # the socket we listen for packet on
         self.socket = None
 
-    def set_cipher_chains(self, encrypt_list, decrypt_list):
-        """Saves the given list of ciphers to be applied to incoming mix
-        messages and in reverse order to outgoing mix messages."""
-        self.encryptors = encrypt_list
-        self.decryptors = decrypt_list
+    def set_keys(self, keys):
+        """Initializes a cipher for en- and decrypting using the given keys."""
+        self.cipher = default_cipher(keys)
 
     def get_outgoing_chan_id(self, src_addr, dest_addr):
         """Get the channel id for a src and dest address pair, or generate one, if
@@ -75,7 +71,7 @@ class EntryPoint():
         """Takes a payload and a channel id and turns it into mix fragments ready
            to be sent out."""
         for frag in make_fragments(message, dest):
-            packet = encrypt_fragment(self.encryptors, frag)
+            packet = self.cipher.encrypt(frag)
 
             self.packets.append(i2b(chan_id, 2) + packet)
 
@@ -90,7 +86,7 @@ class EntryPoint():
 
         print("Client <-", channel_id, "Len:", len(fragment))
 
-        fragment = decrypt_fragment(self.decryptors, fragment)
+        fragment = self.cipher.decrypt(fragment)
         mix_msg = self.mix_msg_store.parse_fragment(fragment)
 
         # send received responses to their respective recipients
@@ -164,16 +160,6 @@ if __name__ == "__main__":
     keys = items_from_file(keyfile)
 
     # init the ciphers
-    encryptors = []
-    decryptors = []
-
-    for key in reversed(keys):
-        encryptors.append(AES.new(key.encode("ascii"), AES.MODE_CBC))
-        decryptors.append(AES.new(key.encode("ascii"), AES.MODE_CBC))
-
-    decryptors.reverse()
-
-    # add ciphers to the EntryPoint
-    entry_point.set_cipher_chains(encryptors, decryptors)
+    entry_point.set_keys(keys)
 
     entry_point.run()
