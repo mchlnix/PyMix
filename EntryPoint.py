@@ -4,8 +4,6 @@ converting them into mix messages before sending."""
 # standard library
 from socket import socket, AF_INET, SOCK_DGRAM as UDP
 from argparse import ArgumentParser
-# third party
-from Crypto.Cipher import AES
 # own
 from Mix import random_channel_id, get_chan_id, get_payload, default_cipher
 from util import items_from_file, i2b, b2i, i2ip
