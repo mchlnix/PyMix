@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/python3 -u
 # standard library
 from random import randint
 from socket import socket, AF_INET, SOCK_DGRAM as UDP
@@ -7,7 +7,7 @@ from argparse import ArgumentParser
 from Crypto.Cipher import AES
 from Crypto.Random.random import StrongRandom
 # own
-from util import i2b, b2i
+from util import i2b, b2i, get_random_bytes
 from MixMessage import FRAG_SIZE
 from TwoWayTable import TwoWayTable
 
@@ -18,7 +18,24 @@ CHAN_ID_SIZE = 2
 MIN_CHAN_ID = 1
 MAX_CHAN_ID = 2**(8*CHAN_ID_SIZE)-1
 
-PACKET_SIZE = CHAN_ID_SIZE + FRAG_SIZE
+EXPLICIT_IV_SIZE = AES.block_size
+
+PACKET_SIZE = CHAN_ID_SIZE + FRAG_SIZE + EXPLICIT_IV_SIZE
+
+
+def decrypt_fragment(ciphers, fragment):
+    for cipher in ciphers:
+        fragment = cipher.decrypt(fragment)[EXPLICIT_IV_SIZE:]
+
+    return fragment
+
+
+def encrypt_fragment(ciphers, fragment):
+    for cipher in ciphers:
+        fragment = cipher.encrypt(get_random_bytes(EXPLICIT_IV_SIZE) +
+                                  fragment)
+
+    return fragment
 
 
 def random_channel_id():
@@ -63,10 +80,12 @@ def handle_mix_fragment(payload, source):
 
     # get or generate outgoing channel id for incoming channel id
     out_id = get_outgoing_chan_id(in_id)
-    print(in_id, "->", out_id)
 
     # decrypt payload and add new channel id
-    plain = i2b(out_id, CHAN_ID_SIZE) + aes.decrypt(payload[CHAN_ID_SIZE:])
+    plain = (i2b(out_id, CHAN_ID_SIZE) +
+             decrypt_fragment([decryptor], payload[CHAN_ID_SIZE:]))
+
+    print(in_id, "->", out_id, "Len:", len(plain))
 
     # store packet
     packet_store.append((plain, nexthop))
@@ -83,13 +102,14 @@ def handle_response(payload):
     in_id = chan_table.in_channel[out_id]
     dest = inchan2ip[in_id]
 
-    print(in_id, "<-", out_id)
-
     # encrypt the payload and add the original channel id
-    cipher = i2b(in_id, CHAN_ID_SIZE) + aes.encrypt(payload[CHAN_ID_SIZE:])
+    cipher_text = (i2b(in_id, CHAN_ID_SIZE) +
+                   encrypt_fragment([encryptor], payload[CHAN_ID_SIZE:]))
+
+    print(in_id, "<-", out_id, "Len:", len(cipher_text))
 
     # store the packet for sending
-    packet_store.append((cipher, dest))
+    packet_store.append((cipher_text, dest))
 
 # pylint: disable=C0103
 if __name__ == "__main__":
@@ -118,7 +138,8 @@ if __name__ == "__main__":
     # set up crypto
     # decrypt for messages from a client
     # encrypt for responses to the client
-    aes = AES.new(key.encode("ascii"), AES.MODE_ECB)
+    encryptor = AES.new(key.encode("ascii"), AES.MODE_CBC)
+    decryptor = AES.new(key.encode("ascii"), AES.MODE_CBC)
 
     # create sockets
     # the 'port' arg is which one to listen and send datagrams from
@@ -147,7 +168,7 @@ if __name__ == "__main__":
 
     while True:
         # listen for packets
-        packet, addr = incoming.recvfrom(CHAN_ID_SIZE + PACKET_SIZE)
+        packet, addr = incoming.recvfrom(10000)
 
         # if the src addr of the last packet is the same as the addr of the
         # next hop, then this packet is a response, otherwise a mix fragment

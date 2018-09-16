@@ -9,7 +9,7 @@ from socket import socket, AF_INET, SOCK_DGRAM as UDP
 from argparse import ArgumentParser as AP
 from selectors import DefaultSelector, EVENT_READ
 # own
-from Mix import PACKET_SIZE, CHAN_ID_SIZE, get_chan_id, get_payload
+from Mix import CHAN_ID_SIZE, get_chan_id, get_payload
 from util import i2b
 from util import parse_ip_port
 from MixMessage import MixMessageStore, make_fragments
@@ -165,7 +165,6 @@ if __name__ == "__main__":
                 if sock == sock_to_mix:
                     # collect mix fragments
                     packet = sock.recv(UDP_MTU)
-                    assert len(packet) == PACKET_SIZE
                     handle_mix_fragment(packet)
                 else:
                     # send responses to the mix chain

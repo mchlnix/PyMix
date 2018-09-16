@@ -7,7 +7,8 @@ from argparse import ArgumentParser
 # third party
 from Crypto.Cipher import AES
 # own
-from Mix import PACKET_SIZE, random_channel_id, get_chan_id, get_payload
+from Mix import random_channel_id, get_chan_id, get_payload
+from Mix import encrypt_fragment, decrypt_fragment
 from util import items_from_file, i2b, b2i, i2ip
 from util import parse_ip_port
 from MixMessage import make_fragments, MixMessageStore
@@ -44,15 +45,17 @@ class EntryPoint():
         self.packets = []
 
         # list of the ciphers to apply to mix messages in correct order
-        self.ciphers = []
+        self.encryptors = []
+        self.decryptors = []
 
         # the socket we listen for packet on
         self.socket = None
 
-    def set_cipher_chain(self, cipher_list):
+    def set_cipher_chains(self, encrypt_list, decrypt_list):
         """Saves the given list of ciphers to be applied to incoming mix
         messages and in reverse order to outgoing mix messages."""
-        self.ciphers = cipher_list
+        self.encryptors = encrypt_list
+        self.decryptors = decrypt_list
 
     def get_outgoing_chan_id(self, src_addr, dest_addr):
         """Get the channel id for a src and dest address pair, or generate one, if
@@ -72,11 +75,12 @@ class EntryPoint():
         """Takes a payload and a channel id and turns it into mix fragments ready
            to be sent out."""
         for frag in make_fragments(message, dest):
-            packet = frag
-            for cipher in self.ciphers:
-                packet = cipher.encrypt(packet)
+            packet = encrypt_fragment(self.encryptors, frag)
 
             self.packets.append(i2b(chan_id, 2) + packet)
+
+            src_addr, _ = self.chan_table.addr_pair[chan_id]
+            print(src_addr, "->", chan_id, len(packet)+2)
 
     def handle_mix_fragment(self, response):
         """Takes a mix fragment and the channel id it came from. This represents a
@@ -84,18 +88,15 @@ class EntryPoint():
         channel_id = get_chan_id(response)
         fragment = get_payload(response)
 
-        print(len(fragment), "b: client <-", channel_id, "mix")
+        print("Client <-", channel_id, "Len:", len(fragment))
 
-        for cipher in reversed(self.ciphers):
-            fragment = cipher.decrypt(fragment)
-
+        fragment = decrypt_fragment(self.decryptors, fragment)
         mix_msg = self.mix_msg_store.parse_fragment(fragment)
 
         # send received responses to their respective recipients
         for mix_msg in self.mix_msg_store.completed():
             dest_addr, _ = self.chan_table.addr_pair[channel_id]
 
-            print("Sending", len(mix_msg.payload), "bytes to", dest_addr)
             self.socket.sendto(mix_msg.payload, dest_addr)
 
         self.mix_msg_store.remove_completed()
@@ -113,8 +114,6 @@ class EntryPoint():
         chan_id = self.get_outgoing_chan_id(src_addr, dest_addr)
         self.chan_table.addr_pair[chan_id] = (src_addr, dest_addr)
 
-        print(len(request)-6, "b:", src_addr, chan_id, "-> mix")
-
         self.add_packets_from_mix_message(request[6:], dest_addr, chan_id)
 
     def run(self):
@@ -129,7 +128,6 @@ class EntryPoint():
 
             if addr == self.mix_addr:
                 # Got a response through the mixes
-                assert len(data) == PACKET_SIZE
                 self.handle_mix_fragment(data)
             else:
                 # got a request to send through the mixes
@@ -166,11 +164,16 @@ if __name__ == "__main__":
     keys = items_from_file(keyfile)
 
     # init the ciphers
-    ciphers = []
+    encryptors = []
+    decryptors = []
 
     for key in reversed(keys):
-        ciphers.append(AES.new(key.encode("ascii"), AES.MODE_ECB))
+        encryptors.append(AES.new(key.encode("ascii"), AES.MODE_CBC))
+        decryptors.append(AES.new(key.encode("ascii"), AES.MODE_CBC))
 
-    entry_point.set_cipher_chain(ciphers)
+    decryptors.reverse()
+
+    # add ciphers to the EntryPoint
+    entry_point.set_cipher_chains(encryptors, decryptors)
 
     entry_point.run()
