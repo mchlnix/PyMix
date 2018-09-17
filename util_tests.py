@@ -5,22 +5,22 @@ from util import padded, partitions, partitioned
 
 # padded
 try:
-    padded([1, 2, 3, 4], 0)
+    padded(bytes([1, 2, 3, 4]), 0)
     raise AssertionError("Expected ValueError")
 except ValueError:
     pass
 
 try:
-    padded([1, 2, 3, 4], -1)
+    padded(bytes([1, 2, 3, 4]), -1)
     raise AssertionError("Expected ValueError")
 except ValueError:
     pass
 
 # lists
-assert len(padded([], 2)) == 2
-assert len(padded([1, 2, 3, 4], 16)) == 16
-assert len(padded([1, 2, 3, 4], 3)) == 6
-assert len(padded([1, 2, 3, 4], 4)) == 4
+assert len(padded(bytes([]), 2)) == 2
+assert len(padded(bytes([1, 2, 3, 4]), 16)) == 16
+assert len(padded(bytes([1, 2, 3, 4]), 3)) == 6
+assert len(padded(bytes([1, 2, 3, 4]), 4)) == 4
 
 # partitions
 try:
