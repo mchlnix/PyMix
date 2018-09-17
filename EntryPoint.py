@@ -70,7 +70,7 @@ class EntryPoint():
         """Takes a payload and a channel id and turns it into mix fragments ready
            to be sent out."""
         for frag in make_fragments(message, dest):
-            packet = self.cipher.encrypt(frag)
+            packet = self.cipher.encrypt(self.cipher.prepare_data(frag))
 
             self.packets.append(i2b(chan_id, 2) + packet)
 
@@ -85,7 +85,7 @@ class EntryPoint():
 
         print("Client <-", channel_id, "Len:", len(fragment))
 
-        fragment = self.cipher.decrypt(fragment)[0:FRAG_SIZE]
+        fragment = self.cipher.finalize_data(self.cipher.decrypt(fragment))
         mix_msg = self.mix_msg_store.parse_fragment(fragment)
 
         # send received responses to their respective recipients
