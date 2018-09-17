@@ -10,7 +10,7 @@ from argparse import ArgumentParser as AP
 from selectors import DefaultSelector, EVENT_READ
 # own
 from Mix import CHAN_ID_SIZE, FRAG_SIZE, get_chan_id, get_payload
-from util import i2b
+from util import i2b, padded
 from util import parse_ip_port
 from MixMessage import MixMessageStore, make_fragments
 from TwoWayTable import TwoWayTable
@@ -52,7 +52,12 @@ def handle_mix_fragment(packet):
        will be sent out over their sockets."""
 
     chan_id = get_chan_id(packet)
-    fragment = get_payload(packet)[0:FRAG_SIZE]
+    fragment = get_payload(packet)
+
+    # the plain text might still have random bytes at the end
+    padding_dict[chan_id] = len(fragment) - FRAG_SIZE
+    print("Plaintext had", padding_dict[chan_id], "bytes padding.")
+    fragment = fragment[0:FRAG_SIZE]
 
     # add fragment to the mix message store
     parsed_frag = store.parse_fragment(fragment)
@@ -109,7 +114,7 @@ def handle_response(sock):
 
     # append channel id to the fragments
     for frag in mix_frags:
-        sock_to_mix.send(i2b(chan_id, CHAN_ID_SIZE) + frag)
+        sock_to_mix.send(i2b(chan_id, CHAN_ID_SIZE) + padded(frag, FRAG_SIZE + padding_dict[chan_id]))
 
 # pylint: disable=C0103
 if __name__ == "__main__":
@@ -134,6 +139,10 @@ if __name__ == "__main__":
 
     # look up table to map sockets to destinations
     sock_table = TwoWayTable("socket", "channel_id")
+
+    # remember how much padding a plain text has to have (see Cipher/CBC_CS.py)
+    # channel id -> number of padding bytes
+    padding_dict = {}
 
     # list of ports, that are listening for responses
     ports = []
