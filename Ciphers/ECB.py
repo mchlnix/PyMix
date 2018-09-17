@@ -8,8 +8,8 @@ def default_cipher(keys):
     decryptors = []
 
     for key in keys:
-        encryptors.append(AES.new(key.encode("ascii"), AES.MODE_ECB))
-        decryptors.append(AES.new(key.encode("ascii"), AES.MODE_ECB))
+        encryptors.append(AES.new(key.encode("ascii"), AES.MODE_ECB, IV=bytes(16)))
+        decryptors.append(AES.new(key.encode("ascii"), AES.MODE_ECB, IV=bytes(16)))
 
     encryptors.reverse()
 
