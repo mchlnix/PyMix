@@ -71,3 +71,23 @@ class CBC_CS(CBC):
                     get_random_bytes(self.iv_size))
 
         return data
+
+    def encrypt(self, data):
+        """Encrypt the data using normal CBC, but cut off unneeded random bytes
+        at the end, to keep the data size consistent.
+        The data, that can safely be cut at the end, should've been added by the
+        prepare_data method beforehand."""
+
+        cipher_text = super(CBC_CS, self).encrypt(data)
+
+        return cipher_text[0:-1 * self.stages * self.iv_size]
+
+    def prepare_data(self, data):
+        """Add as many random blocks to the end of data as there are encryption
+        iterations specified in this cipher object. See encrypt(data) for more
+        information."""
+
+        return data + get_random_bytes(self.stages * self.iv_size)
+
+    def finalize_data(self, data):
+        return data[0:-1 * self.stages * self.iv_size]
