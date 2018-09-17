@@ -8,7 +8,7 @@ from Crypto.Cipher import AES
 from Crypto.Random.random import StrongRandom
 # own
 from util import i2b, b2i
-from Ciphers.CBC import default_cipher
+from Ciphers.CBC_CS import default_cipher
 from MixMessage import FRAG_SIZE
 from TwoWayTable import TwoWayTable
 
