@@ -21,8 +21,6 @@ MAX_CHAN_ID = 2**(8*CHAN_ID_SIZE)-1
 
 EXPLICIT_IV_SIZE = AES.block_size
 
-PACKET_SIZE = CHAN_ID_SIZE + FRAG_SIZE + EXPLICIT_IV_SIZE
-
 class Mix():
     def __init__(self, key, own_addr, next_addr):
         # set up crypto
