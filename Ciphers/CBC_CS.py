@@ -75,8 +75,8 @@ class CBC_CS(CBC):
     def encrypt(self, data):
         """Encrypt the data using normal CBC, but cut off unneeded random bytes
         at the end, to keep the data size consistent.
-        The data, that can safely be cut at the end, should've been added by the
-        prepare_data method beforehand."""
+        The data, that can safely be cut at the end, should've been added by
+        the prepare_data method beforehand."""
 
         cipher_text = super(CBC_CS, self).encrypt(data)
 

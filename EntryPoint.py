@@ -6,7 +6,6 @@ from socket import socket, AF_INET, SOCK_DGRAM as UDP
 from argparse import ArgumentParser
 # own
 from Mix import random_channel_id, get_chan_id, get_payload, default_cipher
-from Mix import FRAG_SIZE
 from util import items_from_file, i2b, b2i, i2ip
 from util import parse_ip_port
 from MixMessage import make_fragments, MixMessageStore

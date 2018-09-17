@@ -114,7 +114,8 @@ def handle_response(sock):
 
     # append channel id to the fragments
     for frag in mix_frags:
-        sock_to_mix.send(i2b(chan_id, CHAN_ID_SIZE) + padded(frag, FRAG_SIZE + padding_dict[chan_id]))
+        sock_to_mix.send(i2b(chan_id, CHAN_ID_SIZE) +
+                         padded(frag, FRAG_SIZE + padding_dict[chan_id]))
 
 # pylint: disable=C0103
 if __name__ == "__main__":
