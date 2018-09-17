@@ -2,6 +2,19 @@ from typing import List, Tuple, Dict
 
 from Types import AddressTuple
 
+FRAG_SIZE: int
+ID_SIZE: int
+FRAG_COUNT_SIZE: int
+FRAG_INDEX_SIZE: int
+PADDING_SIZE: int
+DEST_IP_SIZE: int
+DEST_PORT_SIZE: int
+HEADER_SIZE: int
+PAYLOAD_SIZE: int
+MAX_FRAG_COUNT: int
+HIGHEST_ID: int
+LOWEST_ID: int
+
 def make_fragments(packet: bytes, dest_addr: AddressTuple) -> List[bytearray]: ...
 def _read_int(data: bytes, start: int, length: int) -> Tuple[int, int]: ...
 
