@@ -3,6 +3,9 @@
    builtin functionality, when it was not convenient enough to use."""
 from math import ceil
 from Crypto.Random import get_random_bytes
+from Crypto.Random.random import randint
+
+from constants import MAX_CHAN_ID, MIN_CHAN_ID, CHAN_ID_SIZE
 
 BYTE_ORDER = "big"
 
@@ -50,7 +53,7 @@ def parse_ip_port(ip_port):
     ip, port = ip_port.split(':')
     port = int(port)
 
-    return (ip, port)
+    return ip, port
 
 
 def padded(packet, blocksize):
@@ -134,3 +137,15 @@ def byte_len(integer):
         return 1
 
     return int(ceil(integer.bit_length() / 8.0))
+
+
+def random_channel_id():
+    return randint(MIN_CHAN_ID, MAX_CHAN_ID)
+
+
+def get_chan_id(packet):
+    return b2i(packet[0:CHAN_ID_SIZE])
+
+
+def get_payload(packet):
+    return packet[CHAN_ID_SIZE:]
