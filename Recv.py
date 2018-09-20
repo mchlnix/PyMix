@@ -1,10 +1,10 @@
 #!/usr/bin/python3
 # pylint: disable=C0111
-from argparse import ArgumentParser as AP
+from argparse import ArgumentParser as ArgParse
 from socket import socket, AF_INET, SOCK_DGRAM as UDP
 
-parser = AP(description="Receives data on the specified ip:port using UDP " +
-            "and prints it on stdout.")
+parser = ArgParse(description="Receives data on the specified ip:port using UDP " +
+                  "and prints it on stdout.")
 parser.add_argument("ip:port", help="IP and Port pair to listen for" +
                     "datagrams on.")
 parser.add_argument("-t", "--tcp", help="Use TCP instead of UDP to listen" +

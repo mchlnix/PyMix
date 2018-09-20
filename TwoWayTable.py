@@ -2,7 +2,7 @@
 """TwoWayTable - A better bijective Map"""
 
 
-class TwoWayTable():
+class TwoWayTable:
     """A TwoWayTable is a way to keep two dictionaries synchronized with each
     other. It aims to be a bijective mapping, without the problem of
     key-space/value-space overlap. Meaning a key of one k/v pair can still be
@@ -59,7 +59,7 @@ class TwoWayTable():
         return self.dict1.values()
 
 
-class PairedDict():
+class PairedDict:
     """Saves the keys and values of the wrapped dict as values and keys in the
     partnered dict. But not the other way around! See TwoWayTable for that."""
     def __init__(self, wrapped_dict, partner_dict):
