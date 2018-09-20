@@ -1,27 +1,22 @@
 #!/usr/bin/python3 -u
 # standard library
-from random import randint
-from socket import socket, AF_INET, SOCK_DGRAM as UDP
 from argparse import ArgumentParser
-# third party
+from socket import socket, AF_INET, SOCK_DGRAM as UDP
+
 from Crypto.Cipher import AES
 from Crypto.Random.random import StrongRandom
-# own
-from util import i2b, b2i
+
 from Ciphers.CBC_CS import default_cipher
-from MixMessage import FRAG_SIZE
-from TwoWayTable import TwoWayTable
+from UDPChannel import ChannelMid
+from constants import CHAN_ID_SIZE, UDP_MTU
+from util import get_chan_id
 
 STORE_LIMIT = 1
 
-CHAN_ID_SIZE = 2
-
-MIN_CHAN_ID = 1
-MAX_CHAN_ID = 2**(8*CHAN_ID_SIZE)-1
-
 EXPLICIT_IV_SIZE = AES.block_size
 
-class Mix():
+
+class Mix:
     def __init__(self, key, own_addr, next_addr):
         # set up crypto
         # decrypt for messages from a client
@@ -37,35 +32,11 @@ class Mix():
         self.incoming.bind(own_addr)
 
         self.next_addr = next_addr
-
-        # stores tuples of packets and their destination in a batch
-        self.packet_store = []
+        self.mix_addr = None
 
         print("Mix.py listening on Port {}".format(args.port))
 
-        # channel table, which maps incoming channels to outgoing channels
-        # and vice versa
-        self.chan_table = TwoWayTable("in_channel", "out_channel")
-
-        # table of channel ids mapped to the ip:port they came from. used for
-        # responses, so they are sent to the right recipient
-        self.inchan2ip = {}
-
-    def get_outgoing_chan_id(self, in_chan_id):
-        """Looks up the associated outgoing channel id of the given incoming
-        channel id and returns it. If not found one will be generated."""
-        if in_chan_id not in self.chan_table.in_channels:
-            random_out_id = random_channel_id()
-            while random_out_id in self.chan_table.out_channels:
-                # if channel id is already taken
-                random_out_id = random_channel_id()
-
-            print("New connection:", in_chan_id, "->", random_out_id)
-            self.chan_table.out_channel[in_chan_id] = random_out_id
-
-        return self.chan_table.out_channel[in_chan_id]
-
-    def handle_mix_fragment(self, payload, source):
+    def handle_mix_fragment(self, payload):
         """Handles a message coming in from a client to be sent over the mix chain
         or from a mix earlier in the chain to its ultimate recipient. The given
         payload must be decrypted with the mixes symmetric key and the channel id
@@ -75,19 +46,16 @@ class Mix():
         # connect incoming chan id with address of the packet
         in_id = get_chan_id(payload)
 
-        self.inchan2ip[in_id] = source
+        if in_id in ChannelMid.in2chan.keys():
+            # existing channel
+            channel = ChannelMid.in2chan[in_id]
+            channel.forward_request(payload[CHAN_ID_SIZE:])
+        else:
+            # new channel
+            channel = ChannelMid(in_id)
 
-        # get or generate outgoing channel id for incoming channel id
-        out_id = self.get_outgoing_chan_id(in_id)
-
-        # decrypt payload and add new channel id
-        plain = (i2b(out_id, CHAN_ID_SIZE) +
-                 self.cipher.decrypt(payload[CHAN_ID_SIZE:]))
-
-        print(in_id, "->", out_id, "Len:", len(plain))
-
-        # store packet
-        self.packet_store.append((plain, self.next_addr))
+            plain = self.cipher.decrypt(payload[CHAN_ID_SIZE:])
+            channel.parse_channel_init(plain)
 
     def handle_response(self, payload):
         """Handles a message, that came as a response to an initially made request.
@@ -97,53 +65,44 @@ class Mix():
         # map the out going id, we gave the responder to the incoming id the packet
         # had, then get the src ip for that channel id
         out_id = get_chan_id(payload)
-        in_id = self.chan_table.in_channel[out_id]
-        dest = self.inchan2ip[in_id]
 
-        # encrypt the payload and add the original channel id
-        cipher_text = (i2b(in_id, CHAN_ID_SIZE) +
-                       self.cipher.encrypt(payload[CHAN_ID_SIZE:]))
+        channel = ChannelMid.out2chan[out_id]
 
-        print(in_id, "<-", out_id, "Len:", len(cipher_text))
-
-        # store the packet for sending
-        self.packet_store.append((cipher_text, dest))
+        channel.forward_response(payload[CHAN_ID_SIZE:])
 
     def run(self):
         while True:
             # listen for packets
-            packet, addr = self.incoming.recvfrom(10000)
+            packet, addr = self.incoming.recvfrom(UDP_MTU)
 
             # if the src addr of the last packet is the same as the addr of the
             # next hop, then this packet is a response, otherwise a mix fragment
             if addr == self.next_addr:
                 self.handle_response(packet)
             else:
-                self.handle_mix_fragment(packet, addr)
+                if self.mix_addr is None:
+                    self.mix_addr = addr
+                self.handle_mix_fragment(packet)
 
-            # when store full, or time is right reorder store
-            if len(self.packet_store) >= STORE_LIMIT:
+            # send out requests
+            if len(ChannelMid.requests) >= STORE_LIMIT:
                 # mix packets before sending
-                StrongRandom().shuffle(self.packet_store)
-                # flush store
-                for packet, dest_addr in self.packet_store:
+                StrongRandom().shuffle(ChannelMid.requests)
+                # send STORE_LIMIT packets
+                for _ in range(STORE_LIMIT):
                     # use bound socket to send packets
-                    self.incoming.sendto(packet, dest_addr)
+                    packet = ChannelMid.requests.pop()
+                    self.incoming.sendto(packet, self.next_addr)
 
-                self.packet_store.clear()
-
-
-def random_channel_id():
-    return randint(MIN_CHAN_ID, MAX_CHAN_ID)
-
-
-def get_chan_id(payload):
-    """Reads the channel id of a given packet and returns it as an integer."""
-    return b2i(payload[0:CHAN_ID_SIZE])
-
-
-def get_payload(packet):
-    return packet[CHAN_ID_SIZE:]
+            # send out responses
+            if len(ChannelMid.responses) >= STORE_LIMIT:
+                # mix packets before sending
+                StrongRandom().shuffle(ChannelMid.responses)
+                # send STORE_LIMIT packets
+                for _ in range(STORE_LIMIT):
+                    # use bound socket to send packets
+                    packet = ChannelMid.responses.pop()
+                    self.incoming.sendto(packet, self.mix_addr)
 
 
 # pylint: disable=C0103
@@ -164,18 +123,18 @@ if __name__ == "__main__":
     # get key
     with open(args.keyfile, "r") as keyfile:
         if args.onefile:
-            key = keyfile.readlines()[int(args.position)-1]
+            mix_key = keyfile.readlines()[int(args.position)-1]
         else:
-            key = keyfile.read()
+            mix_key = keyfile.read()
 
-    key = key.strip()
+    mix_key = mix_key.strip().encode("ascii")
 
     own_port = int(args.port)
-    own_addr = ("127.0.0.1", own_port)
+    listen_addr = ("127.0.0.1", own_port)
 
     ip, port = getattr(args, "dest_ip:port").split(":")
-    next_addr = (ip, int(port))
+    next_hop_addr = (ip, int(port))
 
-    mix = Mix(key, own_addr, next_addr)
+    mix = Mix(mix_key, listen_addr, next_hop_addr)
 
     mix.run()

@@ -1,15 +1,16 @@
 #!/usr/bin/python3 -u
 """Contains the EntryPoint object, which connects clients with a mix chain, by
 converting them into mix messages before sending."""
+from argparse import ArgumentParser
 # standard library
 from socket import socket, AF_INET, SOCK_DGRAM as UDP
-from argparse import ArgumentParser
+
+from Ciphers.CBC_CS import default_cipher
+from MixMessage import MixMessageStore
 # own
-from Mix import random_channel_id, get_chan_id, get_payload, default_cipher
-from util import items_from_file, i2b, b2i, i2ip
-from util import parse_ip_port
-from MixMessage import make_fragments, MixMessageStore
-from TwoWayTable import TwoWayTable
+from UDPChannel import ChannelEntry
+from util import items_from_file, b2i, i2ip
+from util import parse_ip_port, get_chan_id, get_payload
 
 UDP_MTU = 65535
 
@@ -18,7 +19,7 @@ MIX_ADDR_ARG = "mix_ip:port"
 KEYFILE_ARG = "keyfile"
 
 
-class EntryPoint():
+class EntryPoint:
     """The EntryPoint connects Clients with the mix chain. It takes regular
     packets with a custom header (dest. ip and port) and parses them into mix
     fragments. These fragments are send to an ExitPoint over the mix chain,
@@ -36,7 +37,7 @@ class EntryPoint():
         self.mix_msg_store = MixMessageStore()
 
         # map of (src_ip:port, dest_ip:port) to channel id
-        self.chan_table = TwoWayTable("addr_pair", "channel_id")
+        self.ips2id = dict()
 
         # stores tuples of payload and destination to send out
         self.packets = []
@@ -47,34 +48,9 @@ class EntryPoint():
         # the socket we listen for packet on
         self.socket = None
 
-    def set_keys(self, keys):
+    def set_keys(self, mix_keys):
         """Initializes a cipher for en- and decrypting using the given keys."""
-        self.cipher = default_cipher(keys)
-
-    def get_outgoing_chan_id(self, src_addr, dest_addr):
-        """Get the channel id for a src and dest address pair, or generate one, if
-        the channel is new."""
-        addr_pair = (src_addr, dest_addr)
-        if addr_pair not in self.chan_table.addr_pairs:
-            random_id = random_channel_id()
-            while random_id in self.chan_table.channel_ids:
-                random_id = random_channel_id()
-
-            self.chan_table.channel_id[addr_pair] = random_id
-            print("New channel", random_id, "for", src_addr, "to", dest_addr)
-
-        return self.chan_table.channel_id[addr_pair]
-
-    def add_packets_from_mix_message(self, message, dest, chan_id):
-        """Takes a payload and a channel id and turns it into mix fragments ready
-           to be sent out."""
-        for frag in make_fragments(message, dest):
-            packet = self.cipher.encrypt(self.cipher.prepare_data(frag))
-
-            self.packets.append(i2b(chan_id, 2) + packet)
-
-            src_addr, _ = self.chan_table.addr_pair[chan_id]
-            print(src_addr, "->", chan_id, len(packet)+2)
+        self.cipher = default_cipher(mix_keys)
 
     def handle_mix_fragment(self, response):
         """Takes a mix fragment and the channel id it came from. This represents a
@@ -82,18 +58,13 @@ class EntryPoint():
         channel_id = get_chan_id(response)
         fragment = get_payload(response)
 
-        print("Client <-", channel_id, "Len:", len(fragment))
+        channel = ChannelEntry.id2channel[channel_id]
 
-        fragment = self.cipher.finalize_data(self.cipher.decrypt(fragment))
-        mix_msg = self.mix_msg_store.parse_fragment(fragment)
+        channel.recv_response_fragment(fragment)
 
-        # send received responses to their respective recipients
-        for mix_msg in self.mix_msg_store.completed():
-            dest_addr, _ = self.chan_table.addr_pair[channel_id]
-
-            self.socket.sendto(mix_msg.payload, dest_addr)
-
-        self.mix_msg_store.remove_completed()
+        # send received responses to their respective recipients without waiting
+        for mix_msg in channel.get_completed_responses():
+            self.socket.sendto(mix_msg.payload, channel.src_addr)
 
     def handle_request(self, request, src_addr):
         """Takes a message and the source address it came from. The destination
@@ -105,10 +76,18 @@ class EntryPoint():
 
         dest_addr = (dest_ip, dest_port)
 
-        chan_id = self.get_outgoing_chan_id(src_addr, dest_addr)
-        self.chan_table.addr_pair[chan_id] = (src_addr, dest_addr)
+        if (src_addr, dest_addr) not in self.ips2id:
+            # new channel needs to be opened
+            channel = ChannelEntry(src_addr, dest_addr, 3)
+            self.ips2id[(src_addr, dest_addr)] = channel.chan_id
 
-        self.add_packets_from_mix_message(request[6:], dest_addr, chan_id)
+            init_msg = channel.chan_init_msg(self.cipher)
+            ChannelEntry.to_mix.append(init_msg)  # TODO better way
+        else:
+            channel = ChannelEntry.id2channel[self.ips2id[src_addr, dest_addr]]
+
+        # add fragments to internal packet list
+        channel.make_request_fragments(request[6:])
 
     def run(self):
         """Starts the EntryPoint main loop, listening on the given address and
@@ -127,10 +106,12 @@ class EntryPoint():
                 # got a request to send through the mixes
                 self.handle_request(data, addr)
 
-            for packet in self.packets:
+            # send to mix
+            for packet in ChannelEntry.to_mix:
                 self.socket.sendto(packet, mix_addr)
 
-            self.packets.clear()
+            ChannelEntry.to_mix.clear()
+
 
 if __name__ == "__main__":
     ap = ArgumentParser()
@@ -155,7 +136,7 @@ if __name__ == "__main__":
 
     # read in the keys
     keyfile = getattr(args, KEYFILE_ARG)
-    keys = items_from_file(keyfile)
+    keys = [key.encode("ascii") for key in items_from_file(keyfile)]
 
     # init the ciphers
     entry_point.set_keys(keys)

@@ -1,15 +1,22 @@
+from socket import socket
+
 from Types import AddressTuple
+from Ciphers.Cipher import Cipher
+
+STORE_LIMIT: int
+CHAN_ID_SIZE: int
+MIN_CHAN_ID: int
+MAX_CHAN_ID: int
+EXPLICIT_IV_SIZE: int
 
 class Mix:
     cipher: Cipher
     incoming: socket
     next_addr: AddressTuple
-    packet_store: MixMessageStore
-    chan_table: TwoWayTable
-    inchan2ip: Dict[int, AddressTuple]
+    mix_addr: AddressTuple
 
     def get_outgoing_chan_id(self, in_chan_id: int) -> int: ...
-    def handle_mix_fragment(self, payload: bytes, source: AddressTuple) -> int: ...
+    def handle_mix_fragment(self, payload: bytes) -> int: ...
     def handle_response(self, payload: bytes) -> None: ...
     def run(self) -> None: ...
 
