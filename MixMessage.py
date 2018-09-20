@@ -1,7 +1,7 @@
 from random import randint
 
 from util import padded, partitions as fragments, partitioned as fragmented
-from util import b2i, i2b, i2ip, ip2i
+from util import b2i, i2b
 
 #########################################
 # MixMessage Fragment Format            #
@@ -23,8 +23,8 @@ FRAG_COUNT_SIZE = 1
 FRAG_INDEX_SIZE = FRAG_COUNT_SIZE  # have to stay equal
 PADDING_SIZE = 2
 
-DEST_IP_SIZE = 4
-DEST_PORT_SIZE = 2
+DEST_IP_SIZE = 0
+DEST_PORT_SIZE = 0
 
 HEADER_SIZE = ID_SIZE + FRAG_COUNT_SIZE + FRAG_INDEX_SIZE + PADDING_SIZE + \
               DEST_IP_SIZE + DEST_PORT_SIZE
@@ -37,9 +37,8 @@ HIGHEST_ID = 2**(ID_SIZE * 8) - 1
 LOWEST_ID = 1
 
 
-def make_fragments(packet, dest_addr):
+def make_fragments(packet):
     # how many fragments will be necessary
-    dest_ip, dest_port = dest_addr
     frag_count = fragments(packet, PAYLOAD_SIZE)
 
     if frag_count > MAX_FRAG_COUNT:
@@ -65,8 +64,6 @@ def make_fragments(packet, dest_addr):
         frag += i2b(frag_count, FRAG_COUNT_SIZE)
         frag += i2b(frag_index + 1, FRAG_INDEX_SIZE)
         frag += i2b(pad_len, PADDING_SIZE)
-        frag += i2b(ip2i(dest_ip), DEST_IP_SIZE)
-        frag += i2b(dest_port, DEST_PORT_SIZE)
         frag += fragment
 
         frags.append(bytearray(frag))
@@ -82,7 +79,7 @@ def _read_int(data, start, length):
     return b2i(data[start:stop]), stop
 
 
-class MixMessageStore():
+class MixMessageStore:
     def __init__(self):
         self.packets = dict()
 
@@ -102,11 +99,6 @@ class MixMessageStore():
 
         packet.pad_size, index = _read_int(raw_frag, index, PADDING_SIZE)
 
-        ip, index = _read_int(raw_frag, index, DEST_IP_SIZE)
-        port, index = _read_int(raw_frag, index, DEST_PORT_SIZE)
-
-        packet.dest = (i2ip(ip), port)
-
         packet.add_fragment(frag_index, raw_frag[index:])
 
         self.packets[msg_id] = packet
@@ -115,6 +107,18 @@ class MixMessageStore():
 
     def completed(self):
         return [packet for packet in self.packets.values() if packet.complete]
+
+    def pop(self):
+        for msg_id, packet in self.packets.items():
+            if packet.complete:
+                break
+        else:
+            raise IndexError("No completed packets.")
+
+        # msg_id still exists after for loop
+        msg_id, packet = self.packets.pop(msg_id)
+
+        return packet
 
     def remove(self, msg_id):
         del self.packets[msg_id]
@@ -126,12 +130,11 @@ class MixMessageStore():
             self.remove(msg_id)
 
 
-class MixMessage():
+class MixMessage:
     def __init__(self, msg_id):
         self.fragments = dict()
         self.id = msg_id
         self.frag_count = 0
-        self.dest = ("-1.-1.-1.-1", -1)
         self.pad_size = 0
         self.payload_size = 0
 
@@ -148,8 +151,8 @@ class MixMessage():
 
     @property
     def payload(self):
+        payload = bytes()
         if self.complete:
-            payload = bytes()
             for i in range(1, self.frag_count+1):
                 payload += self.fragments[i]
 
@@ -158,7 +161,7 @@ class MixMessage():
             else:
                 return payload
 
-        return ""
+        return payload
 
     def __str__(self):
         ret = ""
@@ -167,7 +170,6 @@ class MixMessage():
                                              self.frag_count)
         ret += "Size:        {}\n".format(self.payload_size)
         ret += "Padding:     {}\n".format(self.pad_size)
-        ret += "Destination: {}:{}\n".format(*self.dest)
 
         if self.complete:
             payload = ":".join("{:02x}".format(b) for b in self.payload[0:16])
