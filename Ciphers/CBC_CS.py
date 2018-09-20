@@ -82,6 +82,11 @@ class CBC_CS(CBC):
 
         return cipher_text[0:-1 * self.stages * self.iv_size]
 
+    def encrypt_with_data(self, plain_text, additional_data):
+        cipher_text = super(CBC_CS, self).encrypt_with_data(plain_text, additional_data)
+
+        return cipher_text[0:-1 * self.stages * self.iv_size]
+
     def prepare_data(self, data):
         """Add as many random blocks to the end of data as there are encryption
         iterations specified in this cipher object. See encrypt(data) for more

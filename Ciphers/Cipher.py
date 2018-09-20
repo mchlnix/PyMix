@@ -23,3 +23,14 @@ class Cipher:
 
     def finalize_data(self, data):
         return data
+
+    @staticmethod
+    def gen_iv():
+        return bytes(16)
+
+    @staticmethod
+    def gen_key():
+        return get_random_bytes(16)
+
+    def encrypt_with_data(self, plain, additional_data):
+        raise NotImplementedError
