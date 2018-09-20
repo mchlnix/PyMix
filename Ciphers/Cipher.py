@@ -1,4 +1,8 @@
-def default_cipher(keys):
+from Crypto.Random import get_random_bytes
+
+
+# noinspection PyUnusedLocal
+def default_cipher(keys, iv):
     raise NotImplementedError()
 
 

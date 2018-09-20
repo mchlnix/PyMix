@@ -4,13 +4,13 @@ from Crypto.Random import get_random_bytes
 from Ciphers.Cipher import Cipher
 
 
-def default_cipher(keys):
+def default_cipher(keys, iv=bytes(AES.block_size)):
     encryptors = []
     decryptors = []
 
     for key in keys:
-        encryptors.append(AES.new(key.encode("ascii"), AES.MODE_CBC, IV=bytes(16)))
-        decryptors.append(AES.new(key.encode("ascii"), AES.MODE_CBC, IV=bytes(16)))
+        encryptors.append(AES.new(key.encode("ascii"), AES.MODE_CBC, IV=iv))
+        decryptors.append(AES.new(key.encode("ascii"), AES.MODE_CBC, IV=iv))
 
     encryptors.reverse()
 

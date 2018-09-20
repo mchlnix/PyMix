@@ -3,13 +3,13 @@ from Crypto.Cipher import AES
 from Ciphers.Cipher import Cipher
 
 
-def default_cipher(keys):
+def default_cipher(keys, iv=bytes(16)):
     encryptors = []
     decryptors = []
 
     for key in keys:
-        encryptors.append(AES.new(key.encode("ascii"), AES.MODE_ECB, IV=bytes(16)))
-        decryptors.append(AES.new(key.encode("ascii"), AES.MODE_ECB, IV=bytes(16)))
+        encryptors.append(AES.new(key.encode("ascii"), AES.MODE_ECB, IV=iv))
+        decryptors.append(AES.new(key.encode("ascii"), AES.MODE_ECB, IV=iv))
 
     encryptors.reverse()
 
