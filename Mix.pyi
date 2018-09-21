@@ -4,9 +4,7 @@ from Types import AddressTuple
 from Ciphers.Cipher import Cipher
 
 STORE_LIMIT: int
-CHAN_ID_SIZE: int
-MIN_CHAN_ID: int
-MAX_CHAN_ID: int
+
 EXPLICIT_IV_SIZE: int
 
 class Mix:

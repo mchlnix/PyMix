@@ -123,11 +123,11 @@ if __name__ == "__main__":
     # get key
     with open(args.keyfile, "r") as keyfile:
         if args.onefile:
-            mix_key = keyfile.readlines()[int(args.position)-1]
+            key_str = keyfile.readlines()[int(args.position)-1]
         else:
-            mix_key = keyfile.read()
+            key_str = keyfile.read()
 
-    mix_key = mix_key.strip().encode("ascii")
+    mix_key = key_str.strip().encode("ascii")
 
     own_port = int(args.port)
     listen_addr = ("127.0.0.1", own_port)

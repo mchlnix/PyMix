@@ -9,8 +9,8 @@ def default_cipher(keys, iv=bytes(AES.block_size)):
     decryptors = []
 
     for key in keys:
-        encryptors.append(AES.new(key.encode("ascii"), AES.MODE_CBC, IV=iv))
-        decryptors.append(AES.new(key.encode("ascii"), AES.MODE_CBC, IV=iv))
+        encryptors.append(AES.new(key, AES.MODE_CBC, IV=iv))
+        decryptors.append(AES.new(key, AES.MODE_CBC, IV=iv))
 
     encryptors.reverse()
 
@@ -22,7 +22,7 @@ def gen_key():
 
 
 def gen_iv():
-    return CBC.gen_iv()
+    return CBC.gen_iv(AES.block_size)
 
 
 class CBC(Cipher):
