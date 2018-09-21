@@ -78,12 +78,12 @@ class CBC_CS(CBC):
         The data, that can safely be cut at the end, should've been added by
         the prepare_data method beforehand."""
 
-        cipher_text = super(CBC, self).encrypt(data)
+        cipher_text = super().encrypt(data)
 
         return cipher_text[0:-1 * self.stages * self.iv_size]
 
     def encrypt_with_data(self, plain_text, additional_data):
-        cipher_text = super(CBC, self).encrypt_with_data(plain_text, additional_data)
+        cipher_text = super().encrypt_with_data(plain_text, additional_data)
 
         return cipher_text[0:-1 * self.stages * self.iv_size]
 
