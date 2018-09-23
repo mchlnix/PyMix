@@ -4,7 +4,7 @@ mix messages. Their payloads are sent to the destination from a fixed random
 so that the destination can respond to it. Responses to that port get broken
 up into fragments and sent back over the udp channel/mix chain."""
 from argparse import ArgumentParser as ArgParser
-from selectors import DefaultSelector, EVENT_READ
+from selectors import EVENT_READ
 # standard library
 from socket import socket, AF_INET, SOCK_DGRAM as UDP
 

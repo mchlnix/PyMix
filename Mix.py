@@ -115,13 +115,13 @@ if __name__ == "__main__":
 
     # get configurations
 
-    listen_ip, listen_port, next_ip, next_port, key = read_cfg_values(args.config)
+    listen_ip, listen_port, next_ip, next_port, key_str = read_cfg_values(args.config)
 
     listen_addr = (listen_ip, int(listen_port))
 
     next_hop_addr = (next_ip, int(next_port))
 
-    key = key.encode("ascii")
+    key = key_str.encode("ascii")
 
     mix = Mix(key, listen_addr, next_hop_addr)
 

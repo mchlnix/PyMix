@@ -9,7 +9,7 @@ from Types import AddressTuple
 class ChannelEntry:
     out_chan_list: List[int]
     to_mix: List[bytes]
-    id2channel: Dict[int, ChannelEntry]
+    table: Dict[int, ChannelEntry]
 
     src_addr: AddressTuple
     dest_addr: AddressTuple
@@ -32,8 +32,8 @@ class ChannelMid:
     out_chan_list: List[int]
     requests: List[bytes]
     responses: List[bytes]
-    out2chan: Dict[int, ChannelMid]
-    in2chan: Dict[int, ChannelMid]
+    table_out: Dict[int, ChannelMid]
+    table_in: Dict[int, ChannelMid]
 
     in_chan_id: int
     out_chan_id: int
@@ -51,6 +51,7 @@ class ChannelExit:
     out_ports: List[int]
     sock_sel: DefaultSelector
     to_mix: List[bytes]
+    table: Dict[int, ChannelExit]
 
     in_chan_id: int
     out_sock: socket

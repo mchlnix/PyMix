@@ -14,7 +14,7 @@ class ChannelEntry:
     out_chan_list = []
     to_mix = []
     to_client = []
-    id2channel = dict()
+    table = dict()
 
     def __init__(self, src_addr, dest_addr, mix_count=3):
         self.src_addr = src_addr
@@ -23,7 +23,7 @@ class ChannelEntry:
 
         print("New ChannelEntry for:", src_addr, dest_addr, "->", self.chan_id)
 
-        ChannelEntry.id2channel[self.chan_id] = self
+        ChannelEntry.table[self.chan_id] = self
 
         self.keys = []
 
@@ -97,16 +97,16 @@ class ChannelMid:
     requests = []
     responses = []
 
-    out2chan = dict()
-    in2chan = dict()
+    table_out = dict()
+    table_in = dict()
 
     def __init__(self, in_chan_id):
         self.in_chan_id = in_chan_id
         self.out_chan_id = ChannelMid.random_channel()
         print("New ChannelMid for:", in_chan_id, "->", self.out_chan_id)
 
-        ChannelMid.out2chan[self.out_chan_id] = self
-        ChannelMid.in2chan[self.in_chan_id] = self
+        ChannelMid.table_out[self.out_chan_id] = self
+        ChannelMid.table_in[self.in_chan_id] = self
 
         self.cipher = None
 
@@ -134,7 +134,7 @@ class ChannelMid:
     def random_channel():
         rand_id = random_channel_id()
 
-        while rand_id in ChannelMid.out2chan.keys():
+        while rand_id in ChannelMid.table_out.keys():
             rand_id = random_channel_id()
 
         ChannelMid.out_chan_list.append(rand_id)
@@ -147,6 +147,8 @@ class ChannelExit:
     sock_sel = DefaultSelector()
     to_mix = []
 
+    table = dict()
+
     def __init__(self, in_chan_id):
         self.in_chan_id = in_chan_id
         self.out_sock = ChannelExit.random_socket()
@@ -156,6 +158,7 @@ class ChannelExit:
         self.padding = 48
 
         self.mix_msg_store = MixMessageStore()
+        ChannelExit.table[in_chan_id] = self
 
     def recv_request(self, request):
         """The mix fragment gets added to the fragment store. If the channel id is
