@@ -58,7 +58,7 @@ class EntryPoint:
         channel_id = get_chan_id(response)
         fragment = get_payload(response)
 
-        channel = ChannelEntry.id2channel[channel_id]
+        channel = ChannelEntry.table[channel_id]
 
         channel.recv_response_fragment(fragment)
 
@@ -84,7 +84,7 @@ class EntryPoint:
             init_msg = channel.chan_init_msg(self.cipher)
             ChannelEntry.to_mix.append(init_msg)  # TODO better way
         else:
-            channel = ChannelEntry.id2channel[self.ips2id[src_addr, dest_addr]]
+            channel = ChannelEntry.table[self.ips2id[src_addr, dest_addr]]
 
         # add fragments to internal packet list
         channel.make_request_fragments(request[6:])
@@ -133,7 +133,7 @@ if __name__ == "__main__":
     # this entry point instance
     entry_point = EntryPoint(own_addr, mix_addr)
 
-    # preparethe keys
+    # prepare the keys
     keys = [key.encode("ascii") for key in mix_keys]
 
     # init the ciphers

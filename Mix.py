@@ -46,9 +46,9 @@ class Mix:
         # connect incoming chan id with address of the packet
         in_id = get_chan_id(payload)
 
-        if in_id in ChannelMid.in2chan.keys():
+        if in_id in ChannelMid.table_in.keys():
             # existing channel
-            channel = ChannelMid.in2chan[in_id]
+            channel = ChannelMid.table_in[in_id]
             channel.forward_request(payload[CHAN_ID_SIZE:])
         else:
             # new channel
@@ -66,7 +66,7 @@ class Mix:
         # had, then get the src ip for that channel id
         out_id = get_chan_id(payload)
 
-        channel = ChannelMid.out2chan[out_id]
+        channel = ChannelMid.table_out[out_id]
 
         channel.forward_response(payload[CHAN_ID_SIZE:])
 
