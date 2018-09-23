@@ -8,10 +8,8 @@ from selectors import DefaultSelector, EVENT_READ
 # standard library
 from socket import socket, AF_INET, SOCK_DGRAM as UDP
 
-from MixMessage import MixMessageStore
-from TwoWayTable import TwoWayTable
-from UDPChannel import ChannelExit
 # own
+from UDPChannel import ChannelExit
 from constants import UDP_MTU
 from util import parse_ip_port, get_chan_id, get_payload
 
@@ -21,24 +19,6 @@ from util import parse_ip_port, get_chan_id, get_payload
 class ExitPoint:
     def __init__(self, own_addr):
         self.mix_addr = None
-
-        # a special container, which accepts mix fragments and reassembles them to
-        # MixMessage objects. completed MixMessages can be queried and removed,
-        # their payload is the original unencrypted payload
-        self.store = MixMessageStore()
-
-        # look up table to map sockets to destinations
-        self.chan_table = TwoWayTable("channel_id", "channel")
-
-        # remember how much padding a plain text has to have (see Cipher/CBC_CS.py)
-        # channel id -> number of padding bytes
-        self.padding_dict = {}
-
-        # list of ports, that are listening for responses
-        self.ports = []
-
-        # returns the sockets with data in them, without blocking
-        self.sock_sel = DefaultSelector()
 
         # the socket the mix sends fragments to
         self.sock_to_mix = socket(AF_INET, UDP)
@@ -74,16 +54,16 @@ class ExitPoint:
                     payload = get_payload(packet)
 
                     # new channel detected
-                    if channel_id not in self.chan_table.channel_ids:
+                    if channel_id not in ChannelExit.table.keys():
+                        # automatically puts it into the channel table
+                        # of ChannelExit
                         new_channel = ChannelExit(channel_id)
 
                         # first message of a channel is channel init
                         new_channel.parse_channel_init(payload)
-
-                        self.chan_table.channel[channel_id] = new_channel
                     else:
                         # request from an already established channel
-                        self.chan_table.channel[channel_id].recv_request(payload)
+                        ChannelExit.table[channel_id].recv_request(payload)
 
                 # send responses to mix
                 for packet in ChannelExit.to_mix:
