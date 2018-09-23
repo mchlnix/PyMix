@@ -19,14 +19,13 @@ fi
 $TERMINAL -T EntryPoint.py $TERM_OPS "./EntryPoint.py $IP:$ENTRY_POINT_PORT $IP:$MIX_PORT keyfile" &
 
 # start mixes 
-for key in $(cat keyfile); do
-    $TERMINAL -T "Mix.py $MIX_INDEX" $TERM_OPS "./Mix.py -of $MIX_INDEX $MIX_PORT $IP:$((MIX_PORT+1)) keyfile" &
+for cfg_file in Mix*.cfg; do
+    $TERMINAL -T "Mix.py $MIX_INDEX" $TERM_OPS "./Mix.py $cfg_file"
     : $((MIX_INDEX++))
-    : $((MIX_PORT++))
 done 
 
 # start exit point
-RECV_PORT=$MIX_PORT
+RECV_PORT=20004
 $TERMINAL -T ExitPoint.py $TERM_OPS "./ExitPoint.py $IP:$RECV_PORT" &
 
 if [ -n "$1" ]; then

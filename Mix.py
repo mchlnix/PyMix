@@ -34,7 +34,7 @@ class Mix:
         self.next_addr = next_addr
         self.mix_addr = None
 
-        print("Mix.py listening on Port {}".format(args.port))
+        print("Mix.py listening on {}".format(own_addr))
 
     def handle_mix_fragment(self, payload):
         """Handles a message coming in from a client to be sent over the mix chain
@@ -109,32 +109,22 @@ class Mix:
 if __name__ == "__main__":
     ap = ArgumentParser(description="Very simple mix implementation in " +
                         "python.")
-    ap.add_argument("position", help="the index of the mix in the chain, 1-n.")
-    ap.add_argument("port", help="the port to listen for incoming packets.")
-    ap.add_argument("dest_ip:port", help="ip address pair to send decrypted " +
-                    "packets to. ex. 127.0.0.1:12345")
-    ap.add_argument("keyfile", help="the file to read the key from.")
-    ap.add_argument("-of", "--onefile", help="read the nth line from the" +
-                    " keyfile as the key. n is the given position argument.",
-                    action="store_true", default=False)
+    ap.add_argument("config", help="A file containing configurations for the mix.")
 
     args = ap.parse_args()
 
-    # get key
-    with open(args.keyfile, "r") as keyfile:
-        if args.onefile:
-            key_str = keyfile.readlines()[int(args.position)-1]
-        else:
-            key_str = keyfile.read()
+    # get configurations
 
-    mix_key = key_str.strip().encode("ascii")
+    with open(args.config, "r") as configfile:
+        listen_ip, listen_port, next_ip, next_port, key = \
+            [key_value.strip().split("=")[1] for key_value in configfile.readlines()]
 
-    own_port = int(args.port)
-    listen_addr = ("127.0.0.1", own_port)
+    listen_addr = (listen_ip, int(listen_port))
 
-    ip, port = getattr(args, "dest_ip:port").split(":")
-    next_hop_addr = (ip, int(port))
+    next_hop_addr = (next_ip, int(next_port))
 
-    mix = Mix(mix_key, listen_addr, next_hop_addr)
+    key = key.encode("ascii")
+
+    mix = Mix(key, listen_addr, next_hop_addr)
 
     mix.run()
