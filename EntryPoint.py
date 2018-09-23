@@ -9,7 +9,7 @@ from Ciphers.CBC_CS import default_cipher
 from MixMessage import MixMessageStore
 # own
 from UDPChannel import ChannelEntry
-from util import items_from_file, b2i, i2ip
+from util import b2i, i2ip, read_cfg_values
 from util import parse_ip_port, get_chan_id, get_payload
 
 UDP_MTU = 65535
@@ -118,25 +118,23 @@ if __name__ == "__main__":
 
     ap.add_argument(OWN_ADDR_ARG, help="ip and port, to listen for packets" +
                     "on.")
-    ap.add_argument(MIX_ADDR_ARG, help="ip and port of the mix.")
-    ap.add_argument(KEYFILE_ARG, help="file with keys to encrypt the " +
-                    "payloads with. Will be read line by line. Keys are " +
-                    "used in reversed order.")
+    ap.add_argument("config", help="Config file describing the mix chain.")
 
     args = ap.parse_args()
 
     # get own ip and port
     own_addr = parse_ip_port(getattr(args, OWN_ADDR_ARG))
 
+    mix_ip, mix_port, *mix_keys = read_cfg_values(args.config)
+
     # get mix ip and port
-    mix_addr = parse_ip_port(getattr(args, MIX_ADDR_ARG))
+    mix_addr = parse_ip_port("{}:{}".format(mix_ip, mix_port))
 
     # this entry point instance
     entry_point = EntryPoint(own_addr, mix_addr)
 
-    # read in the keys
-    keyfile = getattr(args, KEYFILE_ARG)
-    keys = [key.encode("ascii") for key in items_from_file(keyfile)]
+    # preparethe keys
+    keys = [key.encode("ascii") for key in mix_keys]
 
     # init the ciphers
     entry_point.set_keys(keys)

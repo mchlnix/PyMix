@@ -16,10 +16,10 @@ if type xfce4-terminal; then
 fi
 
 # start entry point
-$TERMINAL -T EntryPoint.py $TERM_OPS "./EntryPoint.py $IP:$ENTRY_POINT_PORT $IP:$MIX_PORT keyfile" &
+$TERMINAL -T EntryPoint.py $TERM_OPS "./EntryPoint.py $IP:$ENTRY_POINT_PORT MixChain.cfg" &
 
 # start mixes 
-for cfg_file in Mix*.cfg; do
+for cfg_file in Mix[0-9]*.cfg; do
     $TERMINAL -T "Mix.py $MIX_INDEX" $TERM_OPS "./Mix.py $cfg_file"
     : $((MIX_INDEX++))
 done 

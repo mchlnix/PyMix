@@ -9,7 +9,7 @@ from Crypto.Random.random import StrongRandom
 from Ciphers.CBC_CS import default_cipher
 from UDPChannel import ChannelMid
 from constants import CHAN_ID_SIZE, UDP_MTU
-from util import get_chan_id
+from util import get_chan_id, read_cfg_values
 
 STORE_LIMIT = 1
 
@@ -115,9 +115,7 @@ if __name__ == "__main__":
 
     # get configurations
 
-    with open(args.config, "r") as configfile:
-        listen_ip, listen_port, next_ip, next_port, key = \
-            [key_value.strip().split("=")[1] for key_value in configfile.readlines()]
+    listen_ip, listen_port, next_ip, next_port, key = read_cfg_values(args.config)
 
     listen_addr = (listen_ip, int(listen_port))
 

@@ -102,6 +102,23 @@ def items_from_file(filepath):
     return items
 
 
+def read_cfg_file(filepath):
+    cfgs = dict()
+
+    for item in items_from_file(filepath):
+        key, value = item.strip().split('=')
+        cfgs[key] = value
+
+    return cfgs
+
+
+def read_cfg_values(filepath):
+    for item in items_from_file(filepath):
+        print(item)
+        value = item.strip().split('=')[1]
+        yield value
+
+
 def partitions(sequence, part_size):
     """Returns the number of chunks of the given size that could be filled by
     taking from sequence. If the sequence is empty 0 will be returned."""
