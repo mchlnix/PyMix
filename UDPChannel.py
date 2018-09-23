@@ -137,6 +137,8 @@ class ChannelMid:
         while rand_id in ChannelMid.out2chan.keys():
             rand_id = random_channel_id()
 
+        ChannelMid.out_chan_list.append(rand_id)
+
         return rand_id
 
 
@@ -187,7 +189,7 @@ class ChannelExit:
 
     def parse_channel_init(self, channel_init):
         ip = i2ip(b2i(channel_init[0:4]))
-        port = b2i(channel_init[4:6])
+        port = b2i(channel_init[4:6])  # TODO lose the magic numbers
 
         self.dest_addr = (ip, port)
 
