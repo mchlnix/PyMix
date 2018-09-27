@@ -2,7 +2,6 @@ from typing import List, Dict, Tuple
 
 from Types import AddressTuple
 from MixMessage import MixMessage, MixMessageStore
-from Ciphers.Cipher import Cipher
 
 class EntryPoint:
     own_addr: AddressTuple
@@ -10,7 +9,7 @@ class EntryPoint:
     mix_msg_store: MixMessageStore
     ips2id: Dict[Tuple[AddressTuple, AddressTuple], int]
     packets: List[bytes]
-    cipher: Cipher
+    mix_ciphers: list
     socket: socket
 
     def __init__(self, listen_addr: AddressTuple, addr_to_mix: AddressTuple): ...

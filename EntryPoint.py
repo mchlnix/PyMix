@@ -2,12 +2,12 @@
 """Contains the EntryPoint object, which connects clients with a mix chain, by
 converting them into mix messages before sending."""
 from argparse import ArgumentParser
-# standard library
 from socket import socket, AF_INET, SOCK_DGRAM as UDP
 
-from Ciphers.CBC_CS import default_cipher
+from Crypto.Cipher import PKCS1_OAEP
+from Crypto.PublicKey import RSA
+
 from MixMessage import MixMessageStore
-# own
 from UDPChannel import ChannelEntry
 from util import b2i, i2ip, read_cfg_values
 from util import parse_ip_port, get_chan_id, get_payload
@@ -42,15 +42,18 @@ class EntryPoint:
         # stores tuples of payload and destination to send out
         self.packets = []
 
-        # list of the ciphers to apply to mix messages in correct order
-        self.cipher = None
+        # list of the asymmetric mix ciphers to encrypt channel init messages
+        self.mix_ciphers = []
 
         # the socket we listen for packet on
         self.socket = None
 
-    def set_keys(self, mix_keys):
+    def set_keys(self, pub_keys):
         """Initializes a cipher for en- and decrypting using the given keys."""
-        self.cipher = default_cipher(mix_keys)
+        for pub_key in pub_keys:
+            self.mix_ciphers.append(PKCS1_OAEP.new(pub_key))
+
+        self.mix_ciphers.reverse()
 
     def handle_mix_fragment(self, response):
         """Takes a mix fragment and the channel id it came from. This represents a
@@ -81,7 +84,7 @@ class EntryPoint:
             channel = ChannelEntry(src_addr, dest_addr, 3)
             self.ips2id[(src_addr, dest_addr)] = channel.chan_id
 
-            init_msg = channel.chan_init_msg(self.cipher)
+            init_msg = channel.chan_init_msg(self.mix_ciphers)
             ChannelEntry.to_mix.append(init_msg)  # TODO better way
         else:
             channel = ChannelEntry.table[self.ips2id[src_addr, dest_addr]]
@@ -134,9 +137,13 @@ if __name__ == "__main__":
     entry_point = EntryPoint(own_addr, mix_addr)
 
     # prepare the keys
-    keys = [key.encode("ascii") for key in mix_keys]
+    pub_keys = []
+
+    for keyfile in mix_keys:
+        with open(keyfile + ".pem", "rb") as f:
+            pub_keys.append(RSA.importKey(f.read()))
 
     # init the ciphers
-    entry_point.set_keys(keys)
+    entry_point.set_keys(pub_keys)
 
     entry_point.run()
