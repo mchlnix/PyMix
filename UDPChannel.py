@@ -35,7 +35,7 @@ class ChannelEntry:
         self.packets = []
         self.mix_msg_store = MixMessageStore()
 
-    def chan_init_msg(self, mix_cipher):
+    def chan_init_msg(self, mix_ciphers):
         """The bytes in keys are assumed to be the resident keys of the mixes
         in reverse order of delivery (last mix first). The keys might be
         asymmetric keys in the future. These will be used to encrypt the
@@ -49,12 +49,13 @@ class ChannelEntry:
         ip, port = self.dest_addr
         plain = i2b(ip2i(ip), 4) + i2b(port, 2)
 
-        key_length = len(CBC_CS.gen_key())
+        max_input_len = 210
 
-        keys_length = len(self.keys) * key_length
+        for cipher, key in zip(mix_ciphers, reversed(self.keys)):
+            cut_off = max_input_len - len(key)
+            plain = cipher.encrypt(key + plain[0:cut_off]) + plain[cut_off:]
 
-        plain = padded(plain, FRAG_SIZE - keys_length)
-        plain = mix_cipher.encrypt_with_data(mix_cipher.prepare_data(plain), list(reversed(self.keys)))
+        plain = padded(plain, FRAG_SIZE)
 
         return i2b(self.chan_id, CHAN_ID_SIZE) + plain
 
@@ -122,11 +123,13 @@ class ChannelMid:
     def parse_channel_init(self, channel_init):
         """Takes an already decrypted channel init message and reads the key.
         """
-        print(self.in_chan_id, "->", self.out_chan_id)
+        print("Len:", len(channel_init))
         key = channel_init[0:16]
         cipher_text = channel_init[16:] + get_random_bytes(16)
 
         self.cipher = default_cipher([key])
+
+        print(self.in_chan_id, "->", self.out_chan_id, "len:", len(cipher_text))
 
         ChannelMid.requests.append(i2b(self.out_chan_id, 2) + cipher_text)
 
