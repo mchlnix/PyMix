@@ -3,13 +3,13 @@
 from argparse import ArgumentParser
 from socket import socket, AF_INET, SOCK_DGRAM as UDP
 
-from Crypto.Cipher import AES
+from Crypto.Cipher import AES, PKCS1_OAEP
+from Crypto.PublicKey import RSA
 from Crypto.Random.random import StrongRandom
 
-from Ciphers.CBC_CS import default_cipher
 from UDPChannel import ChannelMid
 from constants import CHAN_ID_SIZE, UDP_MTU
-from util import get_chan_id, read_cfg_values
+from util import get_chan_id, read_cfg_values, get_payload
 
 STORE_LIMIT = 1
 
@@ -17,11 +17,14 @@ EXPLICIT_IV_SIZE = AES.block_size
 
 
 class Mix:
-    def __init__(self, key, own_addr, next_addr):
+    def __init__(self, keyfile, own_addr, next_addr):
         # set up crypto
         # decrypt for messages from a client
         # encrypt for responses to the client
-        self.cipher = default_cipher([key])
+        with open(keyfile+".pem", "rb") as f:
+            priv_key = RSA.import_key(f.read())
+
+        self.cipher = PKCS1_OAEP.new(priv_key)
 
         # create sockets
         # the 'port' arg is which one to listen and send datagrams from
@@ -36,7 +39,7 @@ class Mix:
 
         print("Mix.py listening on {}".format(own_addr))
 
-    def handle_mix_fragment(self, payload):
+    def handle_mix_fragment(self, fragment):
         """Handles a message coming in from a client to be sent over the mix chain
         or from a mix earlier in the chain to its ultimate recipient. The given
         payload must be decrypted with the mixes symmetric key and the channel id
@@ -44,17 +47,26 @@ class Mix:
         previous mix to an outgoing channel id mapped to it by this mix instance.
         The prepared packets are stored to be sent out later."""
         # connect incoming chan id with address of the packet
-        in_id = get_chan_id(payload)
+        print("Fragment length:", len(fragment))
+        in_id = get_chan_id(fragment)
+        payload = get_payload(fragment)
 
         if in_id in ChannelMid.table_in.keys():
             # existing channel
             channel = ChannelMid.table_in[in_id]
-            channel.forward_request(payload[CHAN_ID_SIZE:])
+            channel.forward_request(payload)
         else:
             # new channel
             channel = ChannelMid(in_id)
 
-            plain = self.cipher.decrypt(payload[CHAN_ID_SIZE:])
+            # Decrypt only the first block asymmetrically
+            asym_block_size = 256
+
+            asym_plain = self.cipher.decrypt(payload[0:asym_block_size])
+
+            # prepend back to the rest of the cipher text
+            plain = asym_plain + payload[asym_block_size:]
+
             channel.parse_channel_init(plain)
 
     def handle_response(self, payload):
@@ -115,14 +127,12 @@ if __name__ == "__main__":
 
     # get configurations
 
-    listen_ip, listen_port, next_ip, next_port, key_str = read_cfg_values(args.config)
+    listen_ip, listen_port, next_ip, next_port, key_file = read_cfg_values(args.config)
 
     listen_addr = (listen_ip, int(listen_port))
 
     next_hop_addr = (next_ip, int(next_port))
 
-    key = key_str.encode("ascii")
-
-    mix = Mix(key, listen_addr, next_hop_addr)
+    mix = Mix(key_file, listen_addr, next_hop_addr)
 
     mix.run()
