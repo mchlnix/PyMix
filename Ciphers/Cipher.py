@@ -18,10 +18,12 @@ class Cipher:
     def decrypt(self, data):
         raise NotImplementedError("Cipher.decrypt(data)")
 
-    def prepare_data(self, data):
+    @staticmethod
+    def prepare_data(data):
         return data
 
-    def finalize_data(self, data):
+    @staticmethod
+    def finalize_data(data):
         return data
 
     @staticmethod
