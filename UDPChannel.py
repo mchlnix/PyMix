@@ -5,7 +5,7 @@ from selectors import DefaultSelector, EVENT_READ
 from Crypto.Random import get_random_bytes
 
 from constants import CHAN_ID_SIZE, MIN_PORT, MAX_PORT, UDP_MTU
-from util import i2ip, ip2i, i2b, b2i, padded, random_channel_id
+from util import i2ip, ip2i, i2b, b2i, padded, random_channel_id, cut
 from MixMessage import FRAG_SIZE, MixMessageStore, make_fragments
 from Ciphers.CBC_CS import CBC_CS, default_cipher
 

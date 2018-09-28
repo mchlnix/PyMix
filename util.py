@@ -5,7 +5,7 @@ from math import ceil
 from Crypto.Random import get_random_bytes
 from Crypto.Random.random import randint
 
-from constants import MAX_CHAN_ID, MIN_CHAN_ID, CHAN_ID_SIZE
+from constants import MAX_CHAN_ID, MIN_CHAN_ID
 
 BYTE_ORDER = "big"
 
@@ -160,9 +160,5 @@ def random_channel_id():
     return randint(MIN_CHAN_ID, MAX_CHAN_ID)
 
 
-def get_chan_id(packet):
-    return b2i(packet[0:CHAN_ID_SIZE])
-
-
-def get_payload(packet):
-    return packet[CHAN_ID_SIZE:]
+def cut(sequence, cut_point):
+    return sequence[0:cut_point], sequence[cut_point:]

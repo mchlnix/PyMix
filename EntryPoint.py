@@ -9,8 +9,9 @@ from Crypto.PublicKey import RSA
 
 from MixMessage import MixMessageStore
 from UDPChannel import ChannelEntry
-from util import b2i, i2ip, read_cfg_values
-from util import parse_ip_port, get_chan_id, get_payload
+from constants import CHAN_ID_SIZE
+from util import b2i, i2ip, read_cfg_values, cut
+from util import parse_ip_port
 
 UDP_MTU = 65535
 
@@ -58,8 +59,8 @@ class EntryPoint:
     def handle_mix_fragment(self, response):
         """Takes a mix fragment and the channel id it came from. This represents a
         part of a response that was send back through the mix chain."""
-        channel_id = get_chan_id(response)
-        fragment = get_payload(response)
+        channel_id, fragment = cut(response, CHAN_ID_SIZE)
+        channel_id = b2i(channel_id)
 
         channel = ChannelEntry.table[channel_id]
 

@@ -10,8 +10,9 @@ from socket import socket, AF_INET, SOCK_DGRAM as UDP
 
 # own
 from UDPChannel import ChannelExit
-from constants import UDP_MTU
-from util import parse_ip_port, get_chan_id, get_payload
+from constants import UDP_MTU, CHAN_ID_SIZE
+from util import parse_ip_port, cut, b2i
+
 
 # pylint: disable=E1101
 
@@ -50,8 +51,8 @@ class ExitPoint:
                         packet = sock.recv(UDP_MTU)
 
                     # parse packet
-                    channel_id = get_chan_id(packet)
-                    payload = get_payload(packet)
+                    channel_id, payload = cut(packet, CHAN_ID_SIZE)
+                    channel_id = b2i(channel_id)
 
                     # new channel detected
                     if channel_id not in ChannelExit.table.keys():

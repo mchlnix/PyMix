@@ -9,7 +9,7 @@ from Crypto.Random.random import StrongRandom
 
 from UDPChannel import ChannelMid
 from constants import CHAN_ID_SIZE, UDP_MTU
-from util import get_chan_id, read_cfg_values, get_payload
+from util import read_cfg_values, cut, b2i
 
 STORE_LIMIT = 1
 
@@ -47,9 +47,8 @@ class Mix:
         previous mix to an outgoing channel id mapped to it by this mix instance.
         The prepared packets are stored to be sent out later."""
         # connect incoming chan id with address of the packet
-        print("Fragment length:", len(fragment))
-        in_id = get_chan_id(fragment)
-        payload = get_payload(fragment)
+        in_id, payload = cut(fragment, CHAN_ID_SIZE)
+        in_id = b2i(in_id)
 
         if in_id in ChannelMid.table_in.keys():
             # existing channel
@@ -69,18 +68,19 @@ class Mix:
 
             channel.parse_channel_init(plain)
 
-    def handle_response(self, payload):
+    def handle_response(self, response):
         """Handles a message, that came as a response to an initially made request.
         This means, that there should already be a channel established, since
         unsolicited messages through the mix network to a client are not expected
         nor supported. Expect a KeyError in that case."""
         # map the out going id, we gave the responder to the incoming id the packet
         # had, then get the src ip for that channel id
-        out_id = get_chan_id(payload)
+        out_id, payload = cut(response, CHAN_ID_SIZE)
+        out_id = b2i(out_id)
 
         channel = ChannelMid.table_out[out_id]
 
-        channel.forward_response(payload[CHAN_ID_SIZE:])
+        channel.forward_response(payload)
 
     def run(self):
         while True:
