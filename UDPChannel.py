@@ -3,11 +3,25 @@ from socket import socket, AF_INET, SOCK_DGRAM as UDP
 from selectors import DefaultSelector, EVENT_READ
 
 from Crypto.Random import get_random_bytes
+from Crypto.Cipher import AES
+from Crypto.Util import Counter
 
 from constants import CHAN_ID_SIZE, MIN_PORT, MAX_PORT, UDP_MTU
 from util import i2ip, ip2i, i2b, b2i, padded, random_channel_id, cut
 from MixMessage import FRAG_SIZE, MixMessageStore, make_fragments
-from Ciphers.CBC_CS import CBC_CS, default_cipher
+
+
+def gen_key():
+    return get_random_bytes(16)
+
+
+def gen_ctr():
+    return b2i(get_random_bytes(8))
+
+
+def ctr_cipher(key, counter):
+    ctr = Counter.new(nbits=64, prefix=i2b(counter, 8))
+    return AES.new(key, AES.MODE_CTR, counter=ctr)
 
 
 class ChannelEntry:
@@ -26,11 +40,11 @@ class ChannelEntry:
         ChannelEntry.table[self.chan_id] = self
 
         self.keys = []
+        self.counters = []
 
         for i in range(mix_count):
-            self.keys.append(CBC_CS.gen_key())
-
-        self.cipher = default_cipher(self.keys)
+            self.keys.append(gen_key())
+            self.counters.append(gen_ctr())
 
         self.packets = []
         self.mix_msg_store = MixMessageStore()
@@ -44,16 +58,23 @@ class ChannelEntry:
         # Key 1
         #   Key 2
         #     Key 3
-        #       Destination Address
-
-        ip, port = self.dest_addr
-        plain = i2b(ip2i(ip), 4) + i2b(port, 2)
+        #     Destination Address
 
         max_input_len = 210
 
-        for cipher, key in zip(mix_ciphers, reversed(self.keys)):
-            cut_off = max_input_len - len(key)
-            plain = cipher.encrypt(key + plain[0:cut_off]) + plain[cut_off:]
+        ip, port = self.dest_addr
+        plain = padded(i2b(ip2i(ip), 4) + i2b(port, 2), max_input_len)
+
+        # add 0 at the end, since the last mix doesn't need to check ctr values
+        for cipher, key, ctr_start, ctr_check in zip(mix_ciphers,
+                                                     reversed(self.keys),
+                                                     self.counters,
+                                                     self.counters[1:] + [0]):
+            cut_off = max_input_len - len(key) - 2 * 8
+            plain = cipher.encrypt(key +
+                                   i2b(ctr_start, 8) +
+                                   i2b(ctr_check, 8) +
+                                   plain[0:cut_off]) + plain[cut_off:]
 
         plain = padded(plain, FRAG_SIZE)
 
@@ -61,16 +82,17 @@ class ChannelEntry:
 
     def make_request_fragments(self, request):
         print(self.src_addr, "->", self.chan_id, "len:", len(request))
+        packet = []
         for fragment in make_fragments(request):
-            packet = self.cipher.encrypt(self.cipher.prepare_data(fragment))
+            packet = self.encrypt_fragment(fragment)
 
             ChannelEntry.to_mix.append(i2b(self.chan_id, 2) + packet)
 
+        print(self.src_addr, "->", self.chan_id, "len:", len(packet))
+
     def recv_response_fragment(self, response):
         print(self.src_addr, "<-", self.chan_id, "len:", len(response))
-        response = self.cipher.decrypt(response)
-
-        fragment = self.cipher.finalize_data(response)
+        fragment = self.decrypt_fragment(response)
 
         self.mix_msg_store.parse_fragment(fragment)
 
@@ -80,6 +102,26 @@ class ChannelEntry:
         self.mix_msg_store.remove_completed()
 
         return packets
+
+    def encrypt_fragment(self, fragment):
+        for key, ctr_start in zip(reversed(self.keys), self.counters):
+            cipher = ctr_cipher(key, ctr_start)
+
+            fragment = i2b(ctr_start, 8) + cipher.encrypt(fragment)
+
+        self.counters = [ctr + 1 for ctr in self.counters]
+
+        return fragment
+
+    def decrypt_fragment(self, fragment):
+        for key in self.keys:
+            ctr, cipher_text = cut(fragment, 8)
+
+            cipher = ctr_cipher(key, b2i(ctr))
+
+            fragment = cipher.decrypt(cipher_text)
+
+        return fragment
 
     @staticmethod
     def random_channel():
@@ -109,25 +151,44 @@ class ChannelMid:
         ChannelMid.table_out[self.out_chan_id] = self
         ChannelMid.table_in[self.in_chan_id] = self
 
-        self.cipher = None
+        self.ctr_start = None
+        self.ctr_check = None
+        self.key = None
 
     def forward_request(self, request):
         """Takes a mix fragment, already stripped of the channel id."""
-        print(self.in_chan_id, "->", self.out_chan_id)
-        ChannelMid.requests.append(i2b(self.out_chan_id, 2) + self.cipher.decrypt(request))
+        print(self.in_chan_id, "->", self.out_chan_id, "len:", len(request))
+        ctr, cipher_text = cut(request, 8)
+        ctr = b2i(ctr)
+
+        cipher = ctr_cipher(self.key, ctr)
+
+        ChannelMid.requests.append(i2b(self.out_chan_id, 2) + cipher.decrypt(cipher_text))
 
     def forward_response(self, response):
-        print(self.in_chan_id, "<-", self.out_chan_id)
-        ChannelMid.responses.append(i2b(self.in_chan_id, 2) + self.cipher.encrypt(response))
+        print(self.in_chan_id, "<-", self.out_chan_id, "len:", len(response))
+        cipher = ctr_cipher(self.key, self.ctr_start)
+        response = i2b(self.ctr_start, 8) + cipher.encrypt(response)
+
+        self.ctr_start += 1
+
+        ChannelMid.responses.append(i2b(self.in_chan_id, 2) + response)
 
     def parse_channel_init(self, channel_init):
         """Takes an already decrypted channel init message and reads the key.
         """
-        print("Len:", len(channel_init))
-        key = channel_init[0:16]
-        cipher_text = channel_init[16:] + get_random_bytes(16)
+        key_pos = 0
+        key_len = 16
+        ctr1_pos = 16
+        ctr2_pos = 24
+        ctr_len = 8
+        payload_pos = key_len + 2 * ctr_len
 
-        self.cipher = default_cipher([key])
+        self.key = channel_init[key_pos:key_len]
+        self.ctr_start = b2i(channel_init[ctr1_pos:ctr_len])
+        self.ctr_check = b2i(channel_init[ctr2_pos:ctr_len])
+
+        cipher_text = channel_init[payload_pos:] + get_random_bytes(payload_pos)
 
         print(self.in_chan_id, "->", self.out_chan_id, "len:", len(cipher_text))
 
@@ -158,7 +219,7 @@ class ChannelExit:
         print("New ChannelExit for:", in_chan_id)
 
         self.dest_addr = None
-        self.padding = 48
+        self.padding = 0
 
         self.mix_msg_store = MixMessageStore()
         ChannelExit.table[in_chan_id] = self
@@ -170,7 +231,8 @@ class ChannelExit:
         If the fragment completes the mix message, all completed mix messages
         will be sent out over their sockets.
         """
-        fragment = request[0:-self.padding]
+        print("Len:", len(request))
+        fragment, _ = cut(request, FRAG_SIZE)  # cut off any padding
         print(self.in_chan_id, "->", self.dest_addr, "len:", len(fragment))
 
         self.mix_msg_store.parse_fragment(fragment)

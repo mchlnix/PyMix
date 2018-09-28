@@ -2,9 +2,15 @@ from typing import List, Dict
 from socket import socket
 from selectors import DefaultSelector
 
+from Crypto.Cipher._mode_ctr import CtrMode
+
 from Ciphers.Cipher import Cipher
 from MixMessage import MixMessage, MixMessageStore
 from Types import AddressTuple
+
+def gen_key() -> bytes: ...
+def gen_ctr() -> int: ...
+def ctr_cipher(key: bytes, counter: int) -> CtrMode: ...
 
 class ChannelEntry:
     out_chan_list: List[int]
@@ -15,6 +21,7 @@ class ChannelEntry:
     dest_addr: AddressTuple
     chan_id: int
     keys: List[bytes]
+    counters: List[int]
     cipher: Cipher
     packers: List[bytes]
     mix_msg_store: MixMessageStore
@@ -24,6 +31,9 @@ class ChannelEntry:
     def make_request_fragments(self, request: bytes) -> None: ...
     def recv_response_fragment(self, response: bytes) -> None: ...
     def get_completed_responses(self) -> List[MixMessage]: ...
+
+    def encrypt_fragment(self, fragment: bytes) -> bytes: ...
+    def decrypt_fragment(self, fragment: bytes) -> bytes: ...
 
     @staticmethod
     def random_channel() -> int: ...
@@ -37,7 +47,9 @@ class ChannelMid:
 
     in_chan_id: int
     out_chan_id: int
-    cipher: Cipher
+    ctr_start: int
+    ctr_check: int
+    key: bytes
 
     def __init__(self, in_chan_id: int) -> None: ...
     def forward_request(self, request: bytes): ...

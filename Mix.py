@@ -5,6 +5,7 @@ from socket import socket, AF_INET, SOCK_DGRAM as UDP
 
 from Crypto.Cipher import AES, PKCS1_OAEP
 from Crypto.PublicKey import RSA
+from Crypto.Random import get_random_bytes
 from Crypto.Random.random import StrongRandom
 
 from UDPChannel import ChannelMid
@@ -60,11 +61,13 @@ class Mix:
 
             # Decrypt only the first block asymmetrically
             asym_block_size = 256
+            padding_size = 46
 
             asym_plain = self.cipher.decrypt(payload[0:asym_block_size])
 
             # prepend back to the rest of the cipher text
-            plain = asym_plain + payload[asym_block_size:]
+            # TODO use pad() after setting the frag size constant with the ctrs
+            plain = asym_plain + payload[asym_block_size:] + get_random_bytes(padding_size)
 
             channel.parse_channel_init(plain)
 
