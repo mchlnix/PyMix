@@ -1,5 +1,7 @@
 from typing import List
 
+from Crypto.Cipher._mode_cbc import CbcMode
+
 from Ciphers.CBC import CBC
 
 
@@ -7,7 +9,7 @@ def default_cipher(keys: List[bytes], iv: bytes) -> CBC_CS: ...
 
 
 class CBC_CS(CBC):
-    def __init__(self, encryptors: list, decryptors: list, iv_size: int) -> None:
+    def __init__(self, encryptors: List[CbcMode], decryptors: List[CbcMode], iv_size: int) -> None:
         super().__init__(encryptors, decryptors, iv_size)
         ...
     def encrypt(self, data: bytes) -> bytes: ...
