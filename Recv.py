@@ -1,5 +1,4 @@
 #!/usr/bin/python3
-# pylint: disable=C0111
 from argparse import ArgumentParser as ArgParse
 from socket import socket, AF_INET, SOCK_DGRAM as UDP
 

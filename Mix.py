@@ -120,7 +120,6 @@ class Mix:
                     self.incoming.sendto(packet, self.mix_addr)
 
 
-# pylint: disable=C0103
 if __name__ == "__main__":
     ap = ArgumentParser(description="Very simple mix implementation in " +
                         "python.")

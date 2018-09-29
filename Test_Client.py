@@ -1,7 +1,7 @@
 #!/usr/bin/python3
-# pylint: disable=C0111
 from random import randint, choice
 from socket import socket, AF_INET, SOCK_DGRAM as UDP
+
 from util import i2b, ip2i
 
 num_of_requests = 10

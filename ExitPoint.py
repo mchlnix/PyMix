@@ -14,9 +14,6 @@ from constants import UDP_MTU, CHAN_ID_SIZE
 from util import parse_ip_port, cut, b2i
 
 
-# pylint: disable=E1101
-
-
 class ExitPoint:
     def __init__(self, own_addr):
         self.mix_addr = None
@@ -73,7 +70,6 @@ class ExitPoint:
                 ChannelExit.to_mix.clear()
 
 
-# pylint: disable=C0103
 if __name__ == "__main__":
     parser = ArgParser(description="Receives data on the specified ip:port using " +
                        "UDP and prints it on stdout.")
