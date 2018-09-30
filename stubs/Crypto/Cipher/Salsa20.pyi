@@ -1,4 +1,4 @@
-from typing import Union, Tuple
+from typing import Union, Tuple, Optional
 
 
 class Salsa20Cipher:
@@ -10,7 +10,7 @@ class Salsa20Cipher:
     def encrypt(self, plaintext: Union[bytes, bytearray, memoryview]) -> bytes: ...
     def decrypt(self, ciphertext: Union[bytes, bytearray, memoryview]) -> bytes: ...
 
-def new(key: Union[bytes, bytearray, memoryview], nonce: Union[bytes, bytearray, memoryview]) -> Salsa20Cipher: ...
+def new(key: Union[bytes, bytearray, memoryview], nonce: Optional[Union[bytes, bytearray, memoryview]]=None) -> Salsa20Cipher: ...
 
 block_size: int
 key_size: Tuple[int, int]
