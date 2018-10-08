@@ -2,7 +2,7 @@
 from random import randint, choice
 from socket import socket, AF_INET, SOCK_DGRAM as UDP
 
-from util import i2b, ip2i
+from util import i2b, ip2b
 
 num_of_requests = 10
 
@@ -14,7 +14,7 @@ entry_addr = ("127.0.0.1", 20000)
 
 
 def header(ip, port):
-    return i2b(ip2i(ip), 4) + i2b(port, 2)
+    return ip2b(ip) + i2b(port, 2)
 
 
 if __name__ == "__main__":

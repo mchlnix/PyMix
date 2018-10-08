@@ -23,6 +23,7 @@ class ExitPoint:
         self.sock_to_mix.bind(own_addr)
         self.sock_to_mix.setblocking(False)
 
+        # add it to the socket selector in Channel Exit
         ChannelExit.sock_sel.register(self.sock_to_mix, EVENT_READ)
 
     def run(self):

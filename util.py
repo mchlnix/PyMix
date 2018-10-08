@@ -2,6 +2,7 @@
    They mostly focus on sequence and byte manipulation or mask internal
    builtin functionality, when it was not convenient enough to use."""
 from math import ceil
+
 from Crypto.Random import get_random_bytes
 from Crypto.Random.random import randint
 
@@ -25,26 +26,18 @@ def i2b(integer, length):
     return integer.to_bytes(length, byteorder=BYTE_ORDER)
 
 
-def i2ip(integer):
+def b2ip(ip_as_bytes):
     """Takes an integer representation of an IPv4 address and formats it into
     its 255.255.255.255 octet form."""
 
-    _bytes = i2b(integer, 4)
-    return ".".join(str(byte) for byte in _bytes)
+    return ".".join(str(int(byte)) for byte in ip_as_bytes)
 
 
-def ip2i(ip_str):
+def ip2b(ip_str):
     """Takes an IPv4 in the octet form of 255.255.255.255 and returns its
     integer representation by adding it up byte by byte."""
 
-    _bytes = ip_str.split('.')
-
-    ret_int = int(_bytes[0]) << 24
-    ret_int += int(_bytes[1]) << 16
-    ret_int += int(_bytes[2]) << 8
-    ret_int += int(_bytes[3])
-
-    return ret_int
+    return bytes([int(byte) for byte in ip_str.split('.')])
 
 
 def parse_ip_port(ip_port):

@@ -10,7 +10,7 @@ from Crypto.PublicKey import RSA
 from MixMessage import MixMessageStore
 from UDPChannel import ChannelEntry
 from constants import CHAN_ID_SIZE
-from util import b2i, i2ip, read_cfg_values, cut
+from util import b2i, read_cfg_values, cut, b2ip
 from util import parse_ip_port
 
 UDP_MTU = 65535
@@ -75,10 +75,9 @@ class EntryPoint:
         header is cut off, parsed and mapped to a channel. Then the payload is
         separated into mix fragments and sent out with the channel id in front.
         """
-        dest_ip, dest_port = b2i(request[0:4]), b2i(request[4:6])
-        dest_ip = i2ip(dest_ip)
+        dest_ip, dest_port, _ = cut(request, 4, 6)
 
-        dest_addr = (dest_ip, dest_port)
+        dest_addr = (b2ip(dest_ip), b2i(dest_port))
 
         if (src_addr, dest_addr) not in self.ips2id:
             # new channel needs to be opened

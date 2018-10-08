@@ -9,7 +9,7 @@ from Crypto.Util import Counter
 from MixMessage import FRAG_SIZE, MixMessageStore, make_fragments
 from constants import CHAN_ID_SIZE, MIN_PORT, MAX_PORT, UDP_MTU, REPLAY_WINDOW_SIZE, ASYM_INPUT_LEN, SYM_KEY_LEN, \
     CTR_PREFIX_LEN
-from util import i2ip, ip2i, i2b, b2i, padded, random_channel_id, cut
+from util import i2b, b2i, padded, random_channel_id, cut, b2ip, ip2b
 
 
 def gen_key():
@@ -22,7 +22,7 @@ def gen_ctr():
 
 def ctr_cipher(key, counter):
     # nbits = 8 bytes + prefix = 8 bytes
-    ctr = Counter.new(nbits=64, prefix=i2b(counter, 8))
+    ctr = Counter.new(nbits=64, prefix=i2b(counter, CTR_PREFIX_LEN))
     return AES.new(key, AES.MODE_CTR, counter=ctr)
 
 
@@ -63,7 +63,7 @@ class ChannelEntry:
         #     Destination Address
 
         ip, port = self.dest_addr
-        plain = padded(i2b(ip2i(ip), 4) + i2b(port, 2), ASYM_INPUT_LEN)
+        plain = padded(ip2b(ip) + i2b(port, 2), ASYM_INPUT_LEN)
 
         cut_off = ASYM_INPUT_LEN - SYM_KEY_LEN - 2 * CTR_PREFIX_LEN
 
@@ -301,7 +301,7 @@ class ChannelExit:
     def parse_channel_init(self, channel_init):
         ip, port, _ = cut(channel_init, 4, 6)  # TODO lose the magic numbers
 
-        ip = i2ip(b2i(ip))
+        ip = b2ip(ip)
         port = b2i(port)
 
         self.dest_addr = (ip, port)
