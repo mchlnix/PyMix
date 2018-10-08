@@ -7,7 +7,7 @@ from Crypto.Random import get_random_bytes
 from Crypto.Util import Counter
 
 from MixMessage import FRAG_SIZE, MixMessageStore, make_fragments
-from constants import CHAN_ID_SIZE, MIN_PORT, MAX_PORT, UDP_MTU
+from constants import CHAN_ID_SIZE, MIN_PORT, MAX_PORT, UDP_MTU, REPLAY_WINDOW_SIZE
 from util import i2ip, ip2i, i2b, b2i, padded, random_channel_id, cut
 
 
@@ -225,8 +225,8 @@ class ChannelMid:
         self.ctr_own = b2i(channel_init[ctr1_pos:ctr1_pos + ctr_len])
         self.ctr_next = b2i(channel_init[ctr2_pos:ctr2_pos + ctr_len])
 
-        self.last_prev_ctrs = [self.ctr_own] * 10
-        self.last_next_ctrs = [self.ctr_next] * 10
+        self.last_prev_ctrs = [self.ctr_own] * REPLAY_WINDOW_SIZE
+        self.last_next_ctrs = [self.ctr_next] * REPLAY_WINDOW_SIZE
 
         # we increment the counter value, so we don't collide with the replay
         # detection
