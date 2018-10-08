@@ -104,12 +104,12 @@ class ChannelEntry:
         return packets
 
     def encrypt_fragment(self, fragment):
+        self.counters = [ctr + 1 for ctr in self.counters]
+
         for key, ctr_start in zip(reversed(self.keys), self.counters):
             cipher = ctr_cipher(key, ctr_start)
 
             fragment = i2b(ctr_start, 8) + cipher.encrypt(fragment)
-
-        self.counters = [ctr + 1 for ctr in self.counters]
 
         return fragment
 
