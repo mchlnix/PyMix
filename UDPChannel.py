@@ -8,7 +8,7 @@ from Crypto.Util import Counter
 
 from MixMessage import FRAG_SIZE, MixMessageStore, make_fragments
 from constants import CHAN_ID_SIZE, MIN_PORT, MAX_PORT, UDP_MTU, REPLAY_WINDOW_SIZE, ASYM_INPUT_LEN, SYM_KEY_LEN, \
-    CTR_PREFIX_LEN
+    CTR_PREFIX_LEN, CTR_MODE_PADDING
 from util import i2b, b2i, padded, random_channel_id, cut, b2ip, ip2b
 
 
@@ -65,6 +65,7 @@ class ChannelEntry:
         ip, port = self.dest_addr
         plain = padded(ip2b(ip) + i2b(port, 2), ASYM_INPUT_LEN)
 
+        # the plain text bytes, that also fit into the asym block
         cut_off = ASYM_INPUT_LEN - SYM_KEY_LEN - 2 * CTR_PREFIX_LEN
 
         # add 0 at the end, since the last mix doesn't need to check ctr values
@@ -77,7 +78,7 @@ class ChannelEntry:
                                    i2b(ctr_check, CTR_PREFIX_LEN) +
                                    plain[0:cut_off]) + plain[cut_off:]
 
-        plain = padded(plain, FRAG_SIZE)
+        plain = padded(plain, FRAG_SIZE + len(mix_ciphers) * CTR_MODE_PADDING)
 
         return i2b(self.chan_id, CHAN_ID_SIZE) + plain
 
@@ -172,19 +173,22 @@ class ChannelMid:
 
         cipher = ctr_cipher(self.key, ctr)
 
-        ChannelMid.requests.append(i2b(self.out_chan_id, 2) + cipher.decrypt(cipher_text))
+        ChannelMid.requests.append(i2b(self.out_chan_id, 2) + cipher.decrypt(cipher_text) + get_random_bytes(CTR_MODE_PADDING))
 
     def forward_response(self, response):
         print(self.in_chan_id, "<-", self.out_chan_id, "len:", len(response))
 
-        ctr, _ = cut(response, CTR_PREFIX_LEN)
-        ctr = b2i(ctr)
+        payload, padding = cut(response, -CTR_MODE_PADDING)
 
-        if not ChannelMid._check_replay_window(self.last_next_ctrs, ctr):
-            return
+        if self.last_next_ctrs[-1] != 0:  # if this is 0 don't check for a ctr
+            ctr, _ = cut(payload, CTR_PREFIX_LEN)
+            ctr = b2i(ctr)
+
+            if not ChannelMid._check_replay_window(self.last_next_ctrs, ctr):
+                return
 
         cipher = ctr_cipher(self.key, self.ctr_own)
-        response = i2b(self.ctr_own, CTR_PREFIX_LEN) + cipher.encrypt(response)
+        response = i2b(self.ctr_own, CTR_PREFIX_LEN) + cipher.encrypt(payload)
 
         self.ctr_own += 1
 
@@ -192,21 +196,18 @@ class ChannelMid:
 
     @staticmethod
     def _check_replay_window(ctr_list, ctr):
-        if ctr_list[-1]:  # if this is 0 don't check for a ctr
-            if ctr in ctr_list:
-                print("Already seen ctr value", ctr)
-                return False
-            elif ctr < ctr_list[0]:
-                print("Ctr value", ctr, "too small")
-                return False
-            else:
-                print("Valid ctr", ctr)
+        if ctr in ctr_list:
+            print("Already seen ctr value", ctr)
+            return False
+        elif ctr < ctr_list[0]:
+            print("Ctr value", ctr, "too small")
+            return False
 
-            ctr_list.append(ctr)
+        ctr_list.append(ctr)
 
-            # remove the smallest element
-            ctr_list.sort()
-            ctr_list.pop(0)
+        # remove the smallest element
+        ctr_list.sort()
+        ctr_list.pop(0)
 
         return True
 
@@ -275,7 +276,11 @@ class ChannelExit:
         will be sent out over their sockets.
         """
         print("Len:", len(request))
+
+        self.padding = len(request) - FRAG_SIZE
+
         fragment, _ = cut(request, FRAG_SIZE)  # cut off any padding
+
         print(self.in_chan_id, "->", self.dest_addr, "len:", len(fragment))
 
         self.mix_msg_store.parse_fragment(fragment)
@@ -291,12 +296,13 @@ class ChannelExit:
         later sending.
         """
         data = self.out_sock.recv(UDP_MTU)
-        print(self.in_chan_id, "<-", self.dest_addr, "len:", len(data))
 
         mix_frags = make_fragments(data)
 
         for frag in mix_frags:
             ChannelExit.to_mix.append(i2b(self.in_chan_id, CHAN_ID_SIZE) + padded(frag, FRAG_SIZE + self.padding))
+
+        print(self.in_chan_id, "<-", self.dest_addr, "len:", len(ChannelExit.to_mix[-1]))
 
     def parse_channel_init(self, channel_init):
         ip, port, _ = cut(channel_init, 4, 6)  # TODO lose the magic numbers
