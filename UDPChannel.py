@@ -281,13 +281,12 @@ class ChannelExit:
         If the fragment completes the mix message, all completed mix messages
         will be sent out over their sockets.
         """
-        print("Len:", len(request))
+
+        print(self.in_chan_id, "->", self.dest_addr, "len:", len(request))
 
         self.padding = len(request) - FRAG_SIZE
 
         fragment, _ = cut(request, FRAG_SIZE)  # cut off any padding
-
-        print(self.in_chan_id, "->", self.dest_addr, "len:", len(fragment))
 
         self.mix_msg_store.parse_fragment(fragment)
 
@@ -306,11 +305,12 @@ class ChannelExit:
         mix_frags = make_fragments(data)
 
         for frag in mix_frags:
-            ChannelExit.to_mix.append(i2b(self.in_chan_id, CHAN_ID_SIZE) +
-                                      padded(frag, FRAG_SIZE + self.padding))
+            packet = padded(frag, FRAG_SIZE + self.padding)
 
-        print(self.in_chan_id, "<-", self.dest_addr, "len:",
-              len(ChannelExit.to_mix[-1]))
+            print(self.in_chan_id, "<-", self.dest_addr, "len:", len(packet))
+
+            ChannelExit.to_mix.append(i2b(self.in_chan_id, CHAN_ID_SIZE) +
+                                      packet)
 
     def parse_channel_init(self, channel_init):
         ip, port, _ = cut(channel_init, IPV4_LEN, IPV4_LEN + PORT_LEN)
