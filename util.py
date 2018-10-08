@@ -160,5 +160,10 @@ def random_channel_id():
     return randint(MIN_CHAN_ID, MAX_CHAN_ID)
 
 
-def cut(sequence, cut_point):
-    return sequence[0:cut_point], sequence[cut_point:]
+def cut(sequence, *cut_points):
+    cur_place = 0
+    for cut_point in cut_points:
+        yield sequence[cur_place:cut_point]
+        cur_place = cut_point
+
+    yield sequence[cur_place:]

@@ -301,8 +301,10 @@ class ChannelExit:
             ChannelExit.to_mix.append(i2b(self.in_chan_id, CHAN_ID_SIZE) + padded(frag, FRAG_SIZE + self.padding))
 
     def parse_channel_init(self, channel_init):
-        ip = i2ip(b2i(channel_init[0:4]))
-        port = b2i(channel_init[4:6])  # TODO lose the magic numbers
+        ip, port, _ = cut(channel_init, 4, 6)  # TODO lose the magic numbers
+
+        ip = i2ip(b2i(ip))
+        port = b2i(port)
 
         self.dest_addr = (ip, port)
 

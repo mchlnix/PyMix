@@ -1,4 +1,4 @@
-from typing import List, Dict
+from selectors import DefaultSelector
 from socket import socket
 from typing import List, Dict
 
