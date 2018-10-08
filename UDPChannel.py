@@ -146,20 +146,28 @@ class ChannelMid:
     def __init__(self, in_chan_id):
         self.in_chan_id = in_chan_id
         self.out_chan_id = ChannelMid.random_channel()
+
         print("New ChannelMid for:", in_chan_id, "->", self.out_chan_id)
 
         ChannelMid.table_out[self.out_chan_id] = self
         ChannelMid.table_in[self.in_chan_id] = self
 
-        self.ctr_start = None
-        self.ctr_check = None
+        self.ctr_own = None
+        self.ctr_next = None
         self.key = None
+
+        self.last_prev_ctrs = []
+        self.last_next_ctrs = []
 
     def forward_request(self, request):
         """Takes a mix fragment, already stripped of the channel id."""
         print(self.in_chan_id, "->", self.out_chan_id, "len:", len(request))
+
         ctr, cipher_text = cut(request, 8)
         ctr = b2i(ctr)
+
+        if not ChannelMid._check_replay_window(self.last_prev_ctrs, ctr):
+            return
 
         cipher = ctr_cipher(self.key, ctr)
 
@@ -167,12 +175,39 @@ class ChannelMid:
 
     def forward_response(self, response):
         print(self.in_chan_id, "<-", self.out_chan_id, "len:", len(response))
-        cipher = ctr_cipher(self.key, self.ctr_start)
-        response = i2b(self.ctr_start, 8) + cipher.encrypt(response)
 
-        self.ctr_start += 1
+        ctr, _ = cut(response, 8)
+        ctr = b2i(ctr)
+
+        if not ChannelMid._check_replay_window(self.last_next_ctrs, ctr):
+            return
+
+        cipher = ctr_cipher(self.key, self.ctr_own)
+        response = i2b(self.ctr_own, 8) + cipher.encrypt(response)
+
+        self.ctr_own += 1
 
         ChannelMid.responses.append(i2b(self.in_chan_id, 2) + response)
+
+    @staticmethod
+    def _check_replay_window(ctr_list, ctr):
+        if ctr_list[-1]:  # if this is 0 don't check for a ctr
+            if ctr in ctr_list:
+                print("Already seen ctr value", ctr)
+                return False
+            elif ctr < ctr_list[0]:
+                print("Ctr value", ctr, "too small")
+                return False
+            else:
+                print("Valid ctr", ctr)
+
+            ctr_list.append(ctr)
+
+            # remove the smallest element
+            ctr_list.sort()
+            ctr_list.pop(0)
+
+        return True
 
     def parse_channel_init(self, channel_init):
         """Takes an already decrypted channel init message and reads the key.
@@ -185,12 +220,21 @@ class ChannelMid:
         payload_pos = key_len + 2 * ctr_len
 
         self.key = channel_init[key_pos:key_len]
-        self.ctr_start = b2i(channel_init[ctr1_pos:ctr_len])
-        self.ctr_check = b2i(channel_init[ctr2_pos:ctr_len])
+
+        self.ctr_own = b2i(channel_init[ctr1_pos:ctr1_pos + ctr_len])
+        self.ctr_next = b2i(channel_init[ctr2_pos:ctr2_pos + ctr_len])
+
+        self.last_prev_ctrs = [self.ctr_own] * 10
+        self.last_next_ctrs = [self.ctr_next] * 10
+
+        # we increment the counter value, so we don't collide with the replay
+        # detection
+        self.ctr_own += 1
 
         cipher_text = channel_init[payload_pos:] + get_random_bytes(payload_pos)
 
         print(self.in_chan_id, "->", self.out_chan_id, "len:", len(cipher_text))
+        print("Own ctr", self.ctr_own, "Next ctr", self.ctr_next)
 
         ChannelMid.requests.append(i2b(self.out_chan_id, 2) + cipher_text)
 
