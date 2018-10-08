@@ -9,7 +9,7 @@ from Crypto.Util import Counter
 from MixMessage import FRAG_SIZE, MixMessageStore, make_fragments
 from constants import CHAN_ID_SIZE, MIN_PORT, MAX_PORT, UDP_MTU, \
     REPLAY_WINDOW_SIZE, ASYM_INPUT_LEN, SYM_KEY_LEN, CTR_PREFIX_LEN, \
-    CTR_MODE_PADDING
+    CTR_MODE_PADDING, IPV4_LEN, PORT_LEN
 from util import i2b, b2i, padded, random_channel_id, cut, b2ip, ip2b
 
 
@@ -313,7 +313,7 @@ class ChannelExit:
               len(ChannelExit.to_mix[-1]))
 
     def parse_channel_init(self, channel_init):
-        ip, port, _ = cut(channel_init, 4, 6)  # TODO lose the magic numbers
+        ip, port, _ = cut(channel_init, IPV4_LEN, IPV4_LEN + PORT_LEN)
 
         ip = b2ip(ip)
         port = b2i(port)
