@@ -7,8 +7,9 @@ from Crypto.Random import get_random_bytes
 from Crypto.Util import Counter
 
 from MixMessage import FRAG_SIZE, MixMessageStore, make_fragments
-from constants import CHAN_ID_SIZE, MIN_PORT, MAX_PORT, UDP_MTU, REPLAY_WINDOW_SIZE, ASYM_INPUT_LEN, SYM_KEY_LEN, \
-    CTR_PREFIX_LEN, CTR_MODE_PADDING
+from constants import CHAN_ID_SIZE, MIN_PORT, MAX_PORT, UDP_MTU, \
+    REPLAY_WINDOW_SIZE, ASYM_INPUT_LEN, SYM_KEY_LEN, CTR_PREFIX_LEN, \
+    CTR_MODE_PADDING
 from util import i2b, b2i, padded, random_channel_id, cut, b2ip, ip2b
 
 
@@ -44,7 +45,7 @@ class ChannelEntry:
         self.keys = []
         self.counters = []
 
-        for i in range(mix_count):
+        for _ in range(mix_count):
             self.keys.append(gen_key())
             self.counters.append(gen_ctr())
 
@@ -173,12 +174,15 @@ class ChannelMid:
 
         cipher = ctr_cipher(self.key, ctr)
 
-        ChannelMid.requests.append(i2b(self.out_chan_id, 2) + cipher.decrypt(cipher_text) + get_random_bytes(CTR_MODE_PADDING))
+        ChannelMid.requests.append(i2b(self.out_chan_id, CHAN_ID_SIZE) +
+                                   cipher.decrypt(cipher_text) +
+                                   get_random_bytes(CTR_MODE_PADDING))
 
     def forward_response(self, response):
         print(self.in_chan_id, "<-", self.out_chan_id, "len:", len(response))
 
-        payload, padding = cut(response, -CTR_MODE_PADDING)
+        # cut the padding off
+        payload, _ = cut(response, -CTR_MODE_PADDING)
 
         if self.last_next_ctrs[-1] != 0:  # if this is 0 don't check for a ctr
             ctr, _ = cut(payload, CTR_PREFIX_LEN)
@@ -192,7 +196,8 @@ class ChannelMid:
 
         self.ctr_own += 1
 
-        ChannelMid.responses.append(i2b(self.in_chan_id, CHAN_ID_SIZE) + response)
+        ChannelMid.responses.append(i2b(self.in_chan_id, CHAN_ID_SIZE) +
+                                    response)
 
     @staticmethod
     def _check_replay_window(ctr_list, ctr):
@@ -236,7 +241,8 @@ class ChannelMid:
         print(self.in_chan_id, "->", self.out_chan_id, "len:", len(cipher_text))
         print("Own ctr", self.ctr_own, "Next ctr", self.ctr_next)
 
-        ChannelMid.requests.append(i2b(self.out_chan_id, CHAN_ID_SIZE) + cipher_text)
+        ChannelMid.requests.append(i2b(self.out_chan_id, CHAN_ID_SIZE) +
+                                   cipher_text)
 
     @staticmethod
     def random_channel():
@@ -269,8 +275,8 @@ class ChannelExit:
         ChannelExit.table[in_chan_id] = self
 
     def recv_request(self, request):
-        """The mix fragment gets added to the fragment store. If the channel id is
-        not already known a socket will be created for the destination of the
+        """The mix fragment gets added to the fragment store. If the channel id
+        is not already known a socket will be created for the destination of the
         mix fragment and added to the socket table.
         If the fragment completes the mix message, all completed mix messages
         will be sent out over their sockets.
@@ -300,9 +306,11 @@ class ChannelExit:
         mix_frags = make_fragments(data)
 
         for frag in mix_frags:
-            ChannelExit.to_mix.append(i2b(self.in_chan_id, CHAN_ID_SIZE) + padded(frag, FRAG_SIZE + self.padding))
+            ChannelExit.to_mix.append(i2b(self.in_chan_id, CHAN_ID_SIZE) +
+                                      padded(frag, FRAG_SIZE + self.padding))
 
-        print(self.in_chan_id, "<-", self.dest_addr, "len:", len(ChannelExit.to_mix[-1]))
+        print(self.in_chan_id, "<-", self.dest_addr, "len:",
+              len(ChannelExit.to_mix[-1]))
 
     def parse_channel_init(self, channel_init):
         ip, port, _ = cut(channel_init, 4, 6)  # TODO lose the magic numbers
@@ -318,7 +326,8 @@ class ChannelExit:
 
     @staticmethod
     def random_socket():
-        """Returns a socket bound to a random port, that is not in use already."""
+        """Returns a socket bound to a random port, that is not in use already.
+        """
 
         while True:
             rand_port = randint(MIN_PORT, MAX_PORT)

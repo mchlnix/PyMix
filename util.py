@@ -59,7 +59,8 @@ def padded(packet, blocksize):
 
     to_pad = 0
 
-    if len(packet) == 0:
+    # if empty, fill one complete block
+    if packet:
         to_pad = blocksize
     else:
         too_many = len(packet) % blocksize

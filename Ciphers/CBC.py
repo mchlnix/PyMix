@@ -52,6 +52,7 @@ class CBC(Cipher):
 
     def encrypt_with_data(self, plain_text, additional_data):
         for cipher, data in zip(self.encryptors, additional_data):
-            plain_text = cipher.encrypt(get_random_bytes(self.iv_size) + data + plain_text)
+            plain_text = cipher.encrypt(get_random_bytes(self.iv_size) + data +
+                                        plain_text)
 
         return plain_text

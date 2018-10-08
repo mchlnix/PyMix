@@ -41,7 +41,7 @@ class ExitPoint:
                     # the only socket without a channel is the mix socket
                     sock = key.fileobj
 
-                    # we assume the first message we receive will be from the mix
+                    # we assume the first received message will be from the mix
                     if self.mix_addr is None:
                         packet, self.mix_addr = sock.recvfrom(UDP_MTU)
                         sock.connect(self.mix_addr)
@@ -72,8 +72,8 @@ class ExitPoint:
 
 
 if __name__ == "__main__":
-    parser = ArgParser(description="Receives data on the specified ip:port using " +
-                       "UDP and prints it on stdout.")
+    parser = ArgParser(description="Receives data on the specified ip:port" +
+                       "using UDP and prints it on stdout.")
     parser.add_argument("ip:port", help="IP and Port pair to listen for " +
                         "datagrams on")
 

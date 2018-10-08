@@ -22,7 +22,7 @@ class Mix:
         # set up crypto
         # decrypt for messages from a client
         # encrypt for responses to the client
-        with open(keyfile+".pem", "rb") as f:
+        with open(keyfile + ".pem", "rb") as f:
             priv_key = RSA.import_key(f.read())
 
         self.cipher = PKCS1_OAEP.new(priv_key)
@@ -41,12 +41,13 @@ class Mix:
         print("Mix.py listening on {}".format(own_addr))
 
     def handle_mix_fragment(self, fragment):
-        """Handles a message coming in from a client to be sent over the mix chain
-        or from a mix earlier in the chain to its ultimate recipient. The given
-        payload must be decrypted with the mixes symmetric key and the channel id
-        must be changed from the incoming channel id given to it by the client or
-        previous mix to an outgoing channel id mapped to it by this mix instance.
-        The prepared packets are stored to be sent out later."""
+        """Handles a message coming in from a client to be sent over the mix
+        chain or from a mix earlier in the chain to its ultimate recipient. The
+        given payload must be decrypted with the mixes symmetric key and the
+        channel id must be changed from the incoming channel id given to it by
+        the client or previous mix to an outgoing channel id mapped to it by
+        this mix instance. The prepared packets are stored to be sent out
+        later."""
         # connect incoming chan id with address of the packet
         in_id, payload = cut(fragment, CHAN_ID_SIZE)
         in_id = b2i(in_id)
@@ -67,17 +68,18 @@ class Mix:
 
             # prepend back to the rest of the cipher text
             # TODO use pad() after setting the frag size constant with the ctrs
-            plain = asym_plain + payload[asym_block_size:] + get_random_bytes(padding_size)
+            plain = asym_plain + payload[asym_block_size:] + \
+                get_random_bytes(padding_size)
 
             channel.parse_channel_init(plain)
 
     def handle_response(self, response):
-        """Handles a message, that came as a response to an initially made request.
-        This means, that there should already be a channel established, since
-        unsolicited messages through the mix network to a client are not expected
-        nor supported. Expect a KeyError in that case."""
-        # map the out going id, we gave the responder to the incoming id the packet
-        # had, then get the src ip for that channel id
+        """Handles a message, that came as a response to an initially made
+        request. This means, that there should already be a channel established,
+        since unsolicited messages through the mix network to a client are not
+        expected nor supported. Expect a KeyError in that case."""
+        # map the out going id, we gave the responder to the incoming id the
+        # packet had, then get the src ip for that channel id
         out_id, payload = cut(response, CHAN_ID_SIZE)
         out_id = b2i(out_id)
 
@@ -123,13 +125,15 @@ class Mix:
 if __name__ == "__main__":
     ap = ArgumentParser(description="Very simple mix implementation in " +
                         "python.")
-    ap.add_argument("config", help="A file containing configurations for the mix.")
+    ap.add_argument("config",
+                    help="A file containing configurations for the mix.")
 
     args = ap.parse_args()
 
     # get configurations
 
-    listen_ip, listen_port, next_ip, next_port, key_file = read_cfg_values(args.config)
+    listen_ip, listen_port, next_ip, next_port, key_file = \
+        read_cfg_values(args.config)
 
     listen_addr = (listen_ip, int(listen_port))
 

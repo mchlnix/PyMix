@@ -4,7 +4,6 @@ from typing import List, Dict
 
 from Crypto.Cipher._mode_ctr import CtrMode
 
-from Ciphers.Cipher import Cipher
 from MixMessage import MixMessage, MixMessageStore
 from Types import AddressTuple
 
@@ -23,7 +22,6 @@ class ChannelEntry:
     chan_id: int
     keys: List[bytes]
     counters: List[int]
-    cipher: Cipher
     packers: List[bytes]
     mix_msg_store: MixMessageStore
 

@@ -158,8 +158,6 @@ class MixMessage:
 
             if self.pad_size:
                 return payload[0: -self.pad_size]
-            else:
-                return payload
 
         return payload
 

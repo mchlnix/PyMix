@@ -13,5 +13,5 @@ manual:
 .PHONY: lint
 lint:
 	mypy --show-traceback stubs/ Test_Client.py EntryPoint.py ExitPoint.py Mix.py Recv.py
-	flake8 *.py */*.py
+	flake8 --max-line-length=80 *.py */*.py
 	pylint3 --rcfile pylint3.cfg *.py */*.py

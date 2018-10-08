@@ -57,8 +57,9 @@ class EntryPoint:
         self.mix_ciphers.reverse()
 
     def handle_mix_fragment(self, response):
-        """Takes a mix fragment and the channel id it came from. This represents a
-        part of a response that was send back through the mix chain."""
+        """Takes a mix fragment and the channel id it came from. This
+        represents a part of a response that was send back through the mix
+        chain."""
         channel_id, fragment = cut(response, CHAN_ID_SIZE)
         channel_id = b2i(channel_id)
 
@@ -66,7 +67,8 @@ class EntryPoint:
 
         channel.recv_response_fragment(fragment)
 
-        # send received responses to their respective recipients without waiting
+        # send received responses to their respective recipients without
+        # waiting
         for mix_msg in channel.get_completed_responses():
             self.socket.sendto(mix_msg.payload, channel.src_addr)
 
