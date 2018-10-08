@@ -1,12 +1,13 @@
 from typing import List, Dict
 from socket import socket
-from selectors import DefaultSelector
+from typing import List, Dict
 
 from Crypto.Cipher._mode_ctr import CtrMode
 
 from Ciphers.Cipher import Cipher
 from MixMessage import MixMessage, MixMessageStore
 from Types import AddressTuple
+
 
 def gen_key() -> bytes: ...
 def gen_ctr() -> int: ...
@@ -47,13 +48,19 @@ class ChannelMid:
 
     in_chan_id: int
     out_chan_id: int
-    ctr_start: int
-    ctr_check: int
+    ctr_own: int
+    ctr_next: int
     key: bytes
+
+    last_prev_ctrs = List[int]
+    last_next_ctrs = List[int]
 
     def __init__(self, in_chan_id: int) -> None: ...
     def forward_request(self, request: bytes): ...
     def forward_response(self, response: bytes): ...
+    @staticmethod
+    def _check_replay_window(ctr_list: List[int], ctr: int) -> bool: ...
+
     def parse_channel_init(self, channel_init: bytes): ...
 
     @staticmethod
