@@ -7,16 +7,17 @@ from Crypto.Random import get_random_bytes
 from Crypto.Util import Counter
 
 from MixMessage import FRAG_SIZE, MixMessageStore, make_fragments
-from constants import CHAN_ID_SIZE, MIN_PORT, MAX_PORT, UDP_MTU, REPLAY_WINDOW_SIZE
+from constants import CHAN_ID_SIZE, MIN_PORT, MAX_PORT, UDP_MTU, REPLAY_WINDOW_SIZE, ASYM_INPUT_LEN, SYM_KEY_LEN, \
+    CTR_PREFIX_LEN
 from util import i2ip, ip2i, i2b, b2i, padded, random_channel_id, cut
 
 
 def gen_key():
-    return get_random_bytes(16)
+    return get_random_bytes(SYM_KEY_LEN)
 
 
 def gen_ctr():
-    return b2i(get_random_bytes(8))
+    return b2i(get_random_bytes(CTR_PREFIX_LEN))
 
 
 def ctr_cipher(key, counter):
@@ -61,20 +62,19 @@ class ChannelEntry:
         #     Key 3
         #     Destination Address
 
-        max_input_len = 210
-
         ip, port = self.dest_addr
-        plain = padded(i2b(ip2i(ip), 4) + i2b(port, 2), max_input_len)
+        plain = padded(i2b(ip2i(ip), 4) + i2b(port, 2), ASYM_INPUT_LEN)
+
+        cut_off = ASYM_INPUT_LEN - SYM_KEY_LEN - 2 * CTR_PREFIX_LEN
 
         # add 0 at the end, since the last mix doesn't need to check ctr values
         for cipher, key, ctr_start, ctr_check in zip(mix_ciphers,
                                                      reversed(self.keys),
                                                      self.counters,
                                                      [0] + self.counters[0:-1]):
-            cut_off = max_input_len - len(key) - 2 * 8
             plain = cipher.encrypt(key +
-                                   i2b(ctr_start, 8) +
-                                   i2b(ctr_check, 8) +
+                                   i2b(ctr_start, CTR_PREFIX_LEN) +
+                                   i2b(ctr_check, CTR_PREFIX_LEN) +
                                    plain[0:cut_off]) + plain[cut_off:]
 
         plain = padded(plain, FRAG_SIZE)
@@ -87,7 +87,7 @@ class ChannelEntry:
         for fragment in make_fragments(request):
             packet = self.encrypt_fragment(fragment)
 
-            ChannelEntry.to_mix.append(i2b(self.chan_id, 2) + packet)
+            ChannelEntry.to_mix.append(i2b(self.chan_id, CHAN_ID_SIZE) + packet)
 
         print(self.src_addr, "->", self.chan_id, "len:", len(packet))
 
@@ -110,13 +110,13 @@ class ChannelEntry:
         for key, ctr_start in zip(reversed(self.keys), self.counters):
             cipher = ctr_cipher(key, ctr_start)
 
-            fragment = i2b(ctr_start, 8) + cipher.encrypt(fragment)
+            fragment = i2b(ctr_start, CTR_PREFIX_LEN) + cipher.encrypt(fragment)
 
         return fragment
 
     def decrypt_fragment(self, fragment):
         for key in self.keys:
-            ctr, cipher_text = cut(fragment, 8)
+            ctr, cipher_text = cut(fragment, CTR_PREFIX_LEN)
 
             cipher = ctr_cipher(key, b2i(ctr))
 
@@ -164,7 +164,7 @@ class ChannelMid:
         """Takes a mix fragment, already stripped of the channel id."""
         print(self.in_chan_id, "->", self.out_chan_id, "len:", len(request))
 
-        ctr, cipher_text = cut(request, 8)
+        ctr, cipher_text = cut(request, CTR_PREFIX_LEN)
         ctr = b2i(ctr)
 
         if not ChannelMid._check_replay_window(self.last_prev_ctrs, ctr):
@@ -177,18 +177,18 @@ class ChannelMid:
     def forward_response(self, response):
         print(self.in_chan_id, "<-", self.out_chan_id, "len:", len(response))
 
-        ctr, _ = cut(response, 8)
+        ctr, _ = cut(response, CTR_PREFIX_LEN)
         ctr = b2i(ctr)
 
         if not ChannelMid._check_replay_window(self.last_next_ctrs, ctr):
             return
 
         cipher = ctr_cipher(self.key, self.ctr_own)
-        response = i2b(self.ctr_own, 8) + cipher.encrypt(response)
+        response = i2b(self.ctr_own, CTR_PREFIX_LEN) + cipher.encrypt(response)
 
         self.ctr_own += 1
 
-        ChannelMid.responses.append(i2b(self.in_chan_id, 2) + response)
+        ChannelMid.responses.append(i2b(self.in_chan_id, CHAN_ID_SIZE) + response)
 
     @staticmethod
     def _check_replay_window(ctr_list, ctr):
@@ -214,16 +214,14 @@ class ChannelMid:
         """Takes an already decrypted channel init message and reads the key.
         """
         key_pos = 0
-        key_len = 16
         ctr1_pos = 16
         ctr2_pos = 24
-        ctr_len = 8
-        payload_pos = key_len + 2 * ctr_len
+        payload_pos = SYM_KEY_LEN + 2 * CTR_PREFIX_LEN
 
-        self.key = channel_init[key_pos:key_len]
+        self.key = channel_init[key_pos:SYM_KEY_LEN]
 
-        self.ctr_own = b2i(channel_init[ctr1_pos:ctr1_pos + ctr_len])
-        self.ctr_next = b2i(channel_init[ctr2_pos:ctr2_pos + ctr_len])
+        self.ctr_own = b2i(channel_init[ctr1_pos:ctr1_pos + CTR_PREFIX_LEN])
+        self.ctr_next = b2i(channel_init[ctr2_pos:ctr2_pos + CTR_PREFIX_LEN])
 
         self.last_prev_ctrs = [self.ctr_own] * REPLAY_WINDOW_SIZE
         self.last_next_ctrs = [self.ctr_next] * REPLAY_WINDOW_SIZE
@@ -237,7 +235,7 @@ class ChannelMid:
         print(self.in_chan_id, "->", self.out_chan_id, "len:", len(cipher_text))
         print("Own ctr", self.ctr_own, "Next ctr", self.ctr_next)
 
-        ChannelMid.requests.append(i2b(self.out_chan_id, 2) + cipher_text)
+        ChannelMid.requests.append(i2b(self.out_chan_id, CHAN_ID_SIZE) + cipher_text)
 
     @staticmethod
     def random_channel():
