@@ -69,7 +69,7 @@ class ChannelEntry:
         for cipher, key, ctr_start, ctr_check in zip(mix_ciphers,
                                                      reversed(self.keys),
                                                      self.counters,
-                                                     self.counters[1:] + [0]):
+                                                     [0] + self.counters[0:-1]):
             cut_off = max_input_len - len(key) - 2 * 8
             plain = cipher.encrypt(key +
                                    i2b(ctr_start, 8) +
