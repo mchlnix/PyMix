@@ -1,14 +1,14 @@
 from random import randint
-from socket import socket, AF_INET, SOCK_DGRAM as UDP
 from selectors import DefaultSelector, EVENT_READ
+from socket import socket, AF_INET, SOCK_DGRAM as UDP
 
-from Crypto.Random import get_random_bytes
 from Crypto.Cipher import AES
+from Crypto.Random import get_random_bytes
 from Crypto.Util import Counter
 
+from MixMessage import FRAG_SIZE, MixMessageStore, make_fragments
 from constants import CHAN_ID_SIZE, MIN_PORT, MAX_PORT, UDP_MTU
 from util import i2ip, ip2i, i2b, b2i, padded, random_channel_id, cut
-from MixMessage import FRAG_SIZE, MixMessageStore, make_fragments
 
 
 def gen_key():
@@ -20,6 +20,7 @@ def gen_ctr():
 
 
 def ctr_cipher(key, counter):
+    # nbits = 8 bytes + prefix = 8 bytes
     ctr = Counter.new(nbits=64, prefix=i2b(counter, 8))
     return AES.new(key, AES.MODE_CTR, counter=ctr)
 
