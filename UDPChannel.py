@@ -84,14 +84,13 @@ class ChannelEntry:
         return i2b(self.chan_id, CHAN_ID_SIZE) + plain
 
     def make_request_fragments(self, request):
-        print(self.src_addr, "->", self.chan_id, "len:", len(request))
         packet = []
         for fragment in make_fragments(request):
             packet = self.encrypt_fragment(fragment)
 
             ChannelEntry.to_mix.append(i2b(self.chan_id, CHAN_ID_SIZE) + packet)
 
-        print(self.src_addr, "->", self.chan_id, "len:", len(packet))
+        print(self.src_addr, "->", self.chan_id, "len:", len(request), "->", len(packet))
 
     def recv_response_fragment(self, response):
         print(self.src_addr, "<-", self.chan_id, "len:", len(response))

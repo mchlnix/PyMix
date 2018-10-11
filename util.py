@@ -108,7 +108,6 @@ def read_cfg_file(filepath):
 
 def read_cfg_values(filepath):
     for item in items_from_file(filepath):
-        print(item)
         value = item.strip().split('=')[1]
         yield value
 
