@@ -9,7 +9,7 @@ from Crypto.Random import get_random_bytes
 from Crypto.Random.random import StrongRandom
 
 from UDPChannel import ChannelMid
-from constants import CHAN_ID_SIZE, UDP_MTU
+from constants import CHAN_ID_SIZE, UDP_MTU, ASYM_OUTPUT_LEN, ASYM_PADDING_LEN
 from util import read_cfg_values, cut, b2i
 
 STORE_LIMIT = 1
@@ -61,15 +61,12 @@ class Mix:
             channel = ChannelMid(in_id)
 
             # Decrypt only the first block asymmetrically
-            asym_block_size = 256
-            padding_size = 46
-
-            asym_plain = self.cipher.decrypt(payload[0:asym_block_size])
+            asym_plain = self.cipher.decrypt(payload[0:ASYM_OUTPUT_LEN])
 
             # prepend back to the rest of the cipher text
             # TODO use pad() after setting the frag size constant with the ctrs
-            plain = asym_plain + payload[asym_block_size:] + \
-                get_random_bytes(padding_size)
+            plain = asym_plain + payload[ASYM_OUTPUT_LEN:] + \
+                get_random_bytes(ASYM_PADDING_LEN)
 
             channel.parse_channel_init(plain)
 
