@@ -90,7 +90,8 @@ class ChannelEntry:
 
             ChannelEntry.to_mix.append(i2b(self.chan_id, CHAN_ID_SIZE) + packet)
 
-        print(self.src_addr, "->", self.chan_id, "len:", len(request), "->", len(packet))
+        print(self.src_addr, "->", self.chan_id, "len:", len(request), "->",
+              len(packet))
 
     def recv_response_fragment(self, response):
         print(self.src_addr, "<-", self.chan_id, "len:", len(response))

@@ -22,7 +22,7 @@ class Mix:
         # set up crypto
         # decrypt for messages from a client
         # encrypt for responses to the client
-        with open(keyfile + ".pem", "rb") as f:
+        with open("keys/" + keyfile + ".pem", "rb") as f:
             priv_key = RSA.import_key(f.read())
 
         self.cipher = PKCS1_OAEP.new(priv_key)

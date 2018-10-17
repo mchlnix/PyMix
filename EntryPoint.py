@@ -142,7 +142,7 @@ if __name__ == "__main__":
     pub_keys = []
 
     for keyfile in mix_keys:
-        with open(keyfile + ".pem", "rb") as f:
+        with open("keys/" + keyfile + ".pem", "rb") as f:
             pub_keys.append(RSA.importKey(f.read()))
 
     # init the ciphers
