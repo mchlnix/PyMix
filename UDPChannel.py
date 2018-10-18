@@ -320,7 +320,14 @@ class ChannelExit:
 
         self.dest_addr = (ip, port)
 
-        self.out_sock.connect(self.dest_addr)
+        try:
+            self.out_sock.connect(self.dest_addr)
+        except OSError:
+            # couldn't connect, maybe not a channel init message?
+            print("Couldn't connect to destination. Dropped message.")
+            self.out_sock.close()
+            del ChannelExit.table[self.in_chan_id]
+            return
 
         ChannelExit.sock_sel.register(self.out_sock, EVENT_READ, data=self)
 

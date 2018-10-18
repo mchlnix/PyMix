@@ -58,17 +58,20 @@ class Mix:
             channel.forward_request(payload)
         else:
             # new channel
-            channel = ChannelMid(in_id)
-
             # Decrypt only the first block asymmetrically
-            asym_plain = self.cipher.decrypt(payload[0:ASYM_OUTPUT_LEN])
+            try:
+                asym_plain = self.cipher.decrypt(payload[0:ASYM_OUTPUT_LEN])
 
-            # prepend back to the rest of the cipher text
-            # TODO use pad() after setting the frag size constant with the ctrs
-            plain = asym_plain + payload[ASYM_OUTPUT_LEN:] + \
-                get_random_bytes(ASYM_PADDING_LEN)
+                # prepend back to the rest of the cipher text
+                # TODO use pad() after setting the frag size constant with the ctrs
+                plain = asym_plain + payload[ASYM_OUTPUT_LEN:] + \
+                    get_random_bytes(ASYM_PADDING_LEN)
 
-            channel.parse_channel_init(plain)
+                channel = ChannelMid(in_id)
+                channel.parse_channel_init(plain)
+            except ValueError:
+                print("Channel Init decryption failed. Probably gotten a "
+                      "message for that channel too early. Dropping packet.")
 
     def handle_response(self, response):
         """Handles a message, that came as a response to an initially made
