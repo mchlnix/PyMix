@@ -63,7 +63,8 @@ class Mix:
                 asym_plain = self.cipher.decrypt(payload[0:ASYM_OUTPUT_LEN])
 
                 # prepend back to the rest of the cipher text
-                # TODO use pad() after setting the frag size constant with the ctrs
+                # TODO use pad() after setting the frag size constant with the
+                # ctrs
                 plain = asym_plain + payload[ASYM_OUTPUT_LEN:] + \
                     get_random_bytes(ASYM_PADDING_LEN)
 

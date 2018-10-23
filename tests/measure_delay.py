@@ -5,10 +5,12 @@ from math import ceil
 delays = {}
 
 with open("tests/tmp/recv-log") as f:
-    recv_packets = {int(line.split()[0]): float(line.split()[1]) for line in f.readlines()}
+    recv_packets = {int(line.split()[0]): float(line.split()[1]) for line in
+                    f.readlines()}
 
 with open("tests/tmp/send-log") as f:
-    sent_packets = {int(line.split()[0]): float(line.split()[1]) for line in f.readlines()}
+    sent_packets = {int(line.split()[0]): float(line.split()[1]) for line in
+                    f.readlines()}
 
 for packet_id in sent_packets.keys():
     if packet_id in recv_packets.keys():
@@ -21,14 +23,16 @@ delays_len = len(delays.values())
 delays_sum = sum(delays.values())
 delays_srt = sorted(delays.values())
 
+out_format = "Sum: {:.4}s, Min: {:.3}ms, Avg: {:.3}ms, Median: {:.3}ms, " \
+             "Max: {:.3}ms"
+
 print()
 print("Latency")
-print("Sum: {:.4}s, Min: {:.3}ms, Avg: {:.3}ms, Median: {:.3}ms, Max: {:.3}ms".format(delays_sum,
-                                                                                      delays_srt[0] * 1000,
-                                                                                      delays_sum / delays_len * 1000,
-                                                                                      delays_srt[
-                                                                                          delays_len // 2] * 1000,
-                                                                                      delays_srt[-1] * 1000))
+print(out_format.format(delays_sum, delays_srt[0] * 1000,
+                        delays_sum / delays_len * 1000,
+                        delays_srt[
+                            delays_len // 2] * 1000,
+                        delays_srt[-1] * 1000))
 print()
 
 jitter = [abs(delays_lst[i] - delays_lst[i + 1]) for i in range(delays_len - 1)]
@@ -37,12 +41,12 @@ jitter_sum = sum(jitter)
 jitter_len = len(jitter)
 
 print("Jitter")
-print("Sum: {:.4}s, Min: {:.3}ms, Avg: {:.3}ms, Median: {:.3}ms, Max: {:.3}ms".format(jitter_sum,
-                                                                                      jitter_srt[0] * 1000,
-                                                                                      jitter_sum / jitter_len * 1000,
-                                                                                      jitter_srt[
-                                                                                          jitter_len // 2] * 1000,
-                                                                                      jitter_srt[-1] * 1000))
+print(out_format.format(jitter_sum,
+                        jitter_srt[0] * 1000,
+                        jitter_sum / jitter_len * 1000,
+                        jitter_srt[
+                            jitter_len // 2] * 1000,
+                        jitter_srt[-1] * 1000))
 print()
 
 with open("/tmp/blub.csv", "w") as f:

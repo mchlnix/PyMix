@@ -8,7 +8,7 @@ from util import i2b, ip2b
 ip, port = "127.0.0.1", 60001
 entry_addr = ("127.0.0.1", 20000)
 
-to_send = 1 * 1000*1000  # bytes
+to_send = 1 * 1000 * 1000  # bytes
 
 sock = socket(AF_INET, UDP)
 
@@ -41,4 +41,5 @@ with open(args.packet_log, "r") as f:
                 sleep(timestamp - current_time)
 
         print(pack_id, "{:.9f}".format(time()))
-        sock.sendto(ip2b(ip) + i2b(port, 2) + i2b(pack_id, 4) + bytes(pack_len), entry_addr)
+        sock.sendto(ip2b(ip) + i2b(port, 2) + i2b(pack_id, 4) + bytes(pack_len),
+                    entry_addr)
