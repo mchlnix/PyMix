@@ -10,17 +10,27 @@ MIX_PORT=20001
 TERMINAL=xterm
 TERM_OPS="-e"
 
+PID_FILE="chain.pid"
+
+if [ -e "$PID_FILE" ]; then
+    echo "Chain PID file present. Exiting"
+    exit 0
+fi
+
 if type xfce4-terminal; then
     TERMINAL=xfce4-terminal
-    TERM_OPS="-H -e"
+    TERM_OPS="-H --disable-server -e"
 fi
 
 # start entry point
 $TERMINAL -T EntryPoint.py $TERM_OPS "./EntryPoint.py $IP:$ENTRY_POINT_PORT config/MixChain.cfg" &
 
+echo "$!" >> "$PID_FILE"
+
 # start mixes 
 for cfg_file in config/Mix[0-9]*.cfg; do
-    $TERMINAL -T "Mix.py $MIX_INDEX" $TERM_OPS "./Mix.py $cfg_file"
+    $TERMINAL -T "Mix.py $MIX_INDEX" $TERM_OPS "./Mix.py $cfg_file" &
+    echo "$!" >> "$PID_FILE"
     : $((MIX_INDEX++))
 done 
 
@@ -28,7 +38,9 @@ done
 RECV_PORT=20004
 $TERMINAL -T ExitPoint.py $TERM_OPS "./ExitPoint.py $IP:$RECV_PORT" &
 
+echo "$!" >> "$PID_FILE"
+
 if [ -n "$1" ]; then
-    $TERMINAL -T "Recv.py 40000" $TERM_OPS "./Recv.py $IP:40000" &
+    $TERMINAL -T "Recv.py 40000" $TERM_OPS "./Recv.py $IP:40000"
     PYTHONSTARTUP=startupfile python3 &
 fi

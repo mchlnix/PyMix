@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+
+if ! [ -e chain.pid ]; then
+    echo "chain.pid not found"
+    exit 1
+fi
+
+kill $(cat chain.pid)
+
+rm chain.pid
