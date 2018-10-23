@@ -3,15 +3,21 @@
 TERMINAL=xterm
 TERM_OPS="-e"
 
+PID_FILE="tests.pid"
+
+export PYTHONPATH="."
+
 if type xfce4-terminal; then
     TERMINAL=xfce4-terminal
-    TERM_OPS="-H -e"
+    TERM_OPS="-H --disable-server -e"
 fi
 
 for port in 60001 60002 60003 60004 60005; do
-    $TERMINAL -T "Receiver" $TERM_OPS "./Recv.py 127.0.0.1:$port"
+    $TERMINAL -T "Receiver" $TERM_OPS "tests/Recv_and_answer.py 127.0.0.1:$port" &
+    echo "$!" >> "$PID_FILE"
 done
 
 sleep 2
 
-$TERMINAL -T "Sender" $TERM_OPS "./Test_Client.py"
+$TERMINAL -T "Sender" $TERM_OPS "tests/Send_and_recv.py" &
+echo "$!" >> "$PID_FILE"

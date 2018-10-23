@@ -1,7 +1,14 @@
 #!/usr/bin/env bash
 
+if ! [ -e tests.pid ]; then
+    echo "tests.pid not found. Continuing."
+else
+    kill $(cat tests.pid)
+    rm tests.pid
+fi
+
 if ! [ -e chain.pid ]; then
-    echo "chain.pid not found"
+    echo "chain.pid not found. Exiting."
     exit 1
 fi
 
