@@ -1,0 +1,6 @@
+*.swp
+__pycache__/
+.mypy_cache/
+.idea
+tests/tmp
+chain.pid
