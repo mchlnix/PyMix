@@ -19,3 +19,9 @@ stop:
 .PHONY: test
 test: chain
 	bash scripts/start_tests
+
+.PHONY: delay-test
+delay-test: chain test-delay stop
+
+test-delay:
+	bash tests/Delay-Jitter-Test.sh
