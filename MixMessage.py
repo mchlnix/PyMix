@@ -1,26 +1,30 @@
 from random import randint
 
+from constants import CTR_PREFIX_LEN
 from util import padded, partitions as fragments, partitioned as fragmented
 from util import b2i, i2b
 
 #########################################
 # MixMessage Fragment Format            #
 #                                       #
+# Encryption overhead         n*8 Bytes #
 # Packet ID                     4 Bytes #
 # Number of fragments           1 Byte  #
 # Number of this fragment       1 Byte  #
 # Number of padding bytes       2 Bytes #
 # Destination IP                4 Bytes #
 # Destination Port              2 Bytes #
-# Payload                      34 Bytes #
+# Payload          512 - n*8 - 14 Bytes #
 #########################################
 
-FRAG_SIZE = 992
+# typical amount of mixes in the mix chain is 3
+
+FRAG_SIZE = 512 - 3 * CTR_PREFIX_LEN
 
 ID_SIZE = 4
 
 FRAG_COUNT_SIZE = 1
-FRAG_INDEX_SIZE = FRAG_COUNT_SIZE  # have to stay equal
+FRAG_INDEX_SIZE = FRAG_COUNT_SIZE  # have to stay equal size
 PADDING_SIZE = 2
 
 DEST_IP_SIZE = 0
