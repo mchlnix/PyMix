@@ -20,6 +20,7 @@ stop:
 test: chain
 	bash scripts/start_tests
 
+.SILENT:
 .PHONY: delay-test
 delay-test: chain test-delay stop
 
