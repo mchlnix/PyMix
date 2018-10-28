@@ -23,8 +23,8 @@ delays_len = len(delays.values())
 delays_sum = sum(delays.values())
 delays_srt = sorted(delays.values())
 
-out_format = "Sum: {:.4}s, Min: {:.3}ms, Avg: {:.3}ms, Median: {:.3}ms, " \
-             "Max: {:.3}ms"
+out_format = "Sum: {:.3f}s, Min: {:.3f}ms, Avg: {:.3f}ms, Median: {:.3f}ms, " \
+             "Max: {:.3f}ms"
 
 print()
 print("Latency")
@@ -55,5 +55,5 @@ with open("/tmp/blub.csv", "w") as f:
         f.write("{},{}\n".format(key, cntr[key]))
 
 for key, value in delays.items():
-    if value >= 1:
+    if value >= 1 or value <= 1/1000:
         print(key, value)
