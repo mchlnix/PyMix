@@ -8,18 +8,19 @@ from util import b2i, i2b
 # MixMessage Fragment Format            #
 #                                       #
 # Encryption overhead         n*8 Bytes #
+#                                       #
 # Packet ID                     4 Bytes #
 # Number of fragments           1 Byte  #
 # Number of this fragment       1 Byte  #
 # Number of padding bytes       2 Bytes #
-# Destination IP                4 Bytes #
-# Destination Port              2 Bytes #
-# Payload          512 - n*8 - 14 Bytes #
+# Payload           306 - n*8 - 8 Bytes #
 #########################################
 
 # typical amount of mixes in the mix chain is 3
 
-FRAG_SIZE = 512 - 3 * CTR_PREFIX_LEN
+PACKET_SIZE_LIMIT = 306
+
+FRAG_SIZE = PACKET_SIZE_LIMIT - 3 * CTR_PREFIX_LEN
 
 ID_SIZE = 4
 
@@ -27,11 +28,7 @@ FRAG_COUNT_SIZE = 1
 FRAG_INDEX_SIZE = FRAG_COUNT_SIZE  # have to stay equal size
 PADDING_SIZE = 2
 
-DEST_IP_SIZE = 0
-DEST_PORT_SIZE = 0
-
-HEADER_SIZE = ID_SIZE + FRAG_COUNT_SIZE + FRAG_INDEX_SIZE + PADDING_SIZE + \
-              DEST_IP_SIZE + DEST_PORT_SIZE
+HEADER_SIZE = ID_SIZE + FRAG_COUNT_SIZE + FRAG_INDEX_SIZE + PADDING_SIZE
 
 PAYLOAD_SIZE = FRAG_SIZE - HEADER_SIZE
 
