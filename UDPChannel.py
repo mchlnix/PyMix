@@ -81,6 +81,8 @@ class ChannelEntry:
 
         plain = padded(plain, FRAG_SIZE + len(mix_ciphers) * CTR_MODE_PADDING)
 
+        print("Created Channel Init Message. Len:", len(plain))
+
         return i2b(self.chan_id, CHAN_ID_SIZE) + plain
 
     def make_request_fragments(self, request):
@@ -229,11 +231,13 @@ class ChannelMid:
         self.ctr_own = b2i(channel_init[ctr1_pos:ctr1_pos + CTR_PREFIX_LEN])
         self.ctr_next = b2i(channel_init[ctr2_pos:ctr2_pos + CTR_PREFIX_LEN])
 
+        # populate the replay window with the initial counters
+        # those will be replaced step by step
         self.last_prev_ctrs = [self.ctr_own] * REPLAY_WINDOW_SIZE
         self.last_next_ctrs = [self.ctr_next] * REPLAY_WINDOW_SIZE
 
         # we increment the counter value, so we don't collide with the replay
-        # detection
+        # detection on other mixes
         self.ctr_own += 1
 
         cipher_text = channel_init[payload_pos:] + get_random_bytes(payload_pos)
