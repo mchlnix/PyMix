@@ -17,7 +17,7 @@ if [ -e "$PID_FILE" ]; then
     exit 0
 fi
 
-if type xfce4-terminal; then
+if type xfce4-terminal >/dev/null; then
     TERMINAL=xfce4-terminal
     TERM_OPS="-H --disable-server -e"
 fi

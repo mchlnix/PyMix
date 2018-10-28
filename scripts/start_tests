@@ -7,7 +7,7 @@ PID_FILE="tests.pid"
 
 export PYTHONPATH="."
 
-if type xfce4-terminal; then
+if type xfce4-terminal >/dev/null; then
     TERMINAL=xfce4-terminal
     TERM_OPS="-H --disable-server -e"
 fi
