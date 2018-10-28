@@ -49,10 +49,10 @@ class EntryPoint:
         # the socket we listen for packet on
         self.socket = None
 
-    def set_keys(self, pub_keys):
+    def set_keys(self, public_keys):
         """Initializes a cipher for en- and decrypting using the given keys."""
-        for pub_key in pub_keys:
-            self.mix_ciphers.append(PKCS1_OAEP.new(pub_key))
+        for public_key in public_keys:
+            self.mix_ciphers.append(PKCS1_OAEP.new(public_key))
 
         self.mix_ciphers.reverse()
 
