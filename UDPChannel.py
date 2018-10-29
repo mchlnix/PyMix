@@ -49,10 +49,11 @@ class ChannelEntry:
         #     Destination Address
 
         ip, port = self.dest_addr
-        plain = padded(ip2b(ip) + i2b(port, 2), ASYM_INPUT_LEN)
 
         # the plain text bytes, that also fit into the asym block
         cut_off = ASYM_INPUT_LEN - SYM_KEY_LEN - 2 * CTR_PREFIX_LEN
+
+        plain = padded(ip2b(ip) + i2b(port, PORT_LEN), cut_off)
 
         # add 0 at the end, since the last mix doesn't need to check ctr values
         for cipher, key, ctr_start, ctr_check in zip(mix_ciphers,
