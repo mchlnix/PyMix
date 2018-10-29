@@ -1,21 +1,16 @@
 from selectors import DefaultSelector
 from socket import socket
-from typing import List, Dict
-
-from Crypto.Cipher._mode_ctr import CtrMode
+from typing import List, Dict, ClassVar
 
 from MixMessage import MixMessage, MixMessageStore
 from Types import AddressTuple
 
 
-def gen_key() -> bytes: ...
-def gen_ctr() -> int: ...
-def ctr_cipher(key: bytes, counter: int) -> CtrMode: ...
-
 class ChannelEntry:
-    out_chan_list: List[int]
-    to_mix: List[bytes]
-    table: Dict[int, ChannelEntry]
+    out_chan_list: ClassVar[List[int]] = []
+    to_mix: ClassVar[List[bytes]]
+    to_client: ClassVar[List[bytes]]
+    table: ClassVar[Dict[int, ChannelEntry]]
 
     src_addr: AddressTuple
     dest_addr: AddressTuple
@@ -38,11 +33,12 @@ class ChannelEntry:
     def random_channel() -> int: ...
 
 class ChannelMid:
-    out_chan_list: List[int]
-    requests: List[bytes]
-    responses: List[bytes]
-    table_out: Dict[int, ChannelMid]
-    table_in: Dict[int, ChannelMid]
+    out_chan_list: ClassVar[List[int]]
+    requests: ClassVar[List[bytes]]
+    responses: ClassVar[List[bytes]]
+
+    table_out: ClassVar[Dict[int, ChannelMid]]
+    table_in: ClassVar[Dict[int, ChannelMid]]
 
     in_chan_id: int
     out_chan_id: int
@@ -65,10 +61,10 @@ class ChannelMid:
     def random_channel() -> int: ...
 
 class ChannelExit:
-    out_ports: List[int]
-    sock_sel: DefaultSelector
-    to_mix: List[bytes]
-    table: Dict[int, ChannelExit]
+    out_ports: ClassVar[List[int]]
+    sock_sel: ClassVar[DefaultSelector]
+    to_mix: ClassVar[List[bytes]]
+    table: ClassVar[Dict[int, ChannelExit]]
 
     in_chan_id: int
     out_sock: socket
