@@ -186,3 +186,31 @@ def gcm_cipher(key, counter):
     return AES.new(key, AES.MODE_GCM,
                    nonce=i2b(counter, CTR_PREFIX_LEN) + bytes(NONCE_LEN - CTR_PREFIX_LEN),
                    mac_len=GCM_MAC_LEN)
+
+
+def link_encrypt(key, plain_txt):
+    chan_id, ctr_prefix, payload = cut(plain_txt, CHAN_ID_SIZE, CTR_PREFIX_LEN)
+
+    link_ctr = gen_ctr_prefix()
+
+    # use all 0s as link key, since they can not be exchanged yet
+    cipher = gcm_cipher(key, link_ctr)
+
+    # ctr encrypt the header with a random link counter prefix
+    header, mac = cipher.encrypt_and_digest(
+        chan_id + ctr_prefix + bytes(RESERVED_LEN))
+
+    return i2b(link_ctr, CTR_PREFIX_LEN) + header + mac + payload
+
+
+def link_decrypt(key, cipher_txt):
+    link_ctr, header, mac, fragment = cut(cipher_txt, CTR_PREFIX_LEN,
+                                          FRAGMENT_HEADER_LEN, GCM_MAC_LEN)
+
+    cipher = gcm_cipher(key, b2i(link_ctr))
+
+    plain_header = cipher.decrypt_and_verify(header, mac)
+
+    chan_id, msg_ctr, reserved = cut(plain_header, CHAN_ID_SIZE, CTR_PREFIX_LEN)
+
+    return b2i(chan_id), msg_ctr, fragment
