@@ -9,8 +9,10 @@ from Crypto.PublicKey import RSA
 
 from MixMessage import MixMessageStore
 from UDPChannel import ChannelEntry
-from constants import CHAN_ID_SIZE
-from util import b2i, read_cfg_values, cut, b2ip
+from constants import CHAN_ID_SIZE, CTR_PREFIX_LEN, IPV4_LEN, PORT_LEN, \
+    RESERVED_LEN
+from util import b2i, read_cfg_values, cut, b2ip, gcm_cipher, gen_ctr_prefix, \
+    i2b
 from util import parse_ip_port
 
 UDP_MTU = 65535
@@ -27,6 +29,7 @@ class EntryPoint:
     where they are reassembled and then sent to the actual destination.
     Responses that come in over the mix chain are reassembled here as well and
     sent to the clients that are responded to."""
+
     def __init__(self, listen_addr, addr_to_mix):
         # where to listen on
         self.own_addr = listen_addr
@@ -113,7 +116,21 @@ class EntryPoint:
 
             # send to mix
             for packet in ChannelEntry.to_mix:
-                self.socket.sendto(packet, mix_addr)
+                chan_id, ctr_prefix, payload = cut(packet, CHAN_ID_SIZE,
+                                                   CTR_PREFIX_LEN)
+
+                link_ctr = gen_ctr_prefix()
+
+                # use all 0s as link key, since they can not be exchanged yet
+                cipher = gcm_cipher(bytes(16), link_ctr)
+
+                # ctr encrypt the header with a random link counter prefix
+                header, mac = cipher.encrypt(
+                    chan_id + ctr_prefix + bytes(RESERVED_LEN))
+
+                self.socket.sendto(
+                    i2b(link_ctr, CTR_PREFIX_LEN) + header + mac + payload,
+                    mix_addr)
 
             ChannelEntry.to_mix.clear()
 
@@ -121,8 +138,7 @@ class EntryPoint:
 if __name__ == "__main__":
     ap = ArgumentParser()
 
-    ap.add_argument(OWN_ADDR_ARG, help="ip and port, to listen for packets" +
-                    "on.")
+    ap.add_argument(OWN_ADDR_ARG, help="ip and port, to listen for packets on.")
     ap.add_argument("config", help="Config file describing the mix chain.")
 
     args = ap.parse_args()
