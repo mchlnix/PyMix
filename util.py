@@ -3,10 +3,13 @@
    builtin functionality, when it was not convenient enough to use."""
 from math import ceil
 
+from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
 from Crypto.Random.random import randint
+from Crypto.Util import Counter
 
-from constants import MAX_CHAN_ID, MIN_CHAN_ID
+from constants import MAX_CHAN_ID, MIN_CHAN_ID, SYM_KEY_LEN, CTR_PREFIX_LEN, \
+    GCM_MAC_LEN
 
 BYTE_ORDER = "big"
 
@@ -160,3 +163,24 @@ def cut(sequence, *cut_points):
         cur_place = cut_point
 
     yield sequence[cur_place:]
+
+
+# crypto
+def gen_sym_key():
+    return get_random_bytes(SYM_KEY_LEN)
+
+
+def gen_ctr_prefix():
+    return b2i(get_random_bytes(CTR_PREFIX_LEN))
+
+
+def ctr_cipher(key, counter):
+    # nbits = 8 bytes + prefix = 8 bytes
+    ctr = Counter.new(nbits=64, prefix=i2b(counter, CTR_PREFIX_LEN))
+    return AES.new(key, AES.MODE_CTR, counter=ctr)
+
+
+def gcm_cipher(key, counter):
+    # nbits = 8 bytes + prefix = 8 bytes
+    ctr = Counter.new(nbits=64, prefix=i2b(counter, CTR_PREFIX_LEN))
+    return AES.new(key, AES.MODE_GCM, counter=ctr, mac_len=GCM_MAC_LEN)

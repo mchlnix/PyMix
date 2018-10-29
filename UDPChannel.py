@@ -2,29 +2,14 @@ from random import randint
 from selectors import DefaultSelector, EVENT_READ
 from socket import socket, AF_INET, SOCK_DGRAM as UDP
 
-from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
-from Crypto.Util import Counter
 
 from MixMessage import FRAG_SIZE, MixMessageStore, make_fragments
 from constants import CHAN_ID_SIZE, MIN_PORT, MAX_PORT, UDP_MTU, \
     REPLAY_WINDOW_SIZE, ASYM_INPUT_LEN, SYM_KEY_LEN, CTR_PREFIX_LEN, \
     CTR_MODE_PADDING, IPV4_LEN, PORT_LEN
-from util import i2b, b2i, padded, random_channel_id, cut, b2ip, ip2b
-
-
-def gen_key():
-    return get_random_bytes(SYM_KEY_LEN)
-
-
-def gen_ctr():
-    return b2i(get_random_bytes(CTR_PREFIX_LEN))
-
-
-def ctr_cipher(key, counter):
-    # nbits = 8 bytes + prefix = 8 bytes
-    ctr = Counter.new(nbits=64, prefix=i2b(counter, CTR_PREFIX_LEN))
-    return AES.new(key, AES.MODE_CTR, counter=ctr)
+from util import i2b, b2i, padded, random_channel_id, cut, b2ip, ip2b, \
+    gen_ctr_prefix, gen_sym_key, ctr_cipher
 
 
 class ChannelEntry:
@@ -46,8 +31,8 @@ class ChannelEntry:
         self.counters = []
 
         for _ in range(mix_count):
-            self.keys.append(gen_key())
-            self.counters.append(gen_ctr())
+            self.keys.append(gen_sym_key())
+            self.counters.append(gen_ctr_prefix())
 
         self.packets = []
         self.mix_msg_store = MixMessageStore()
