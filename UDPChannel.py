@@ -302,7 +302,7 @@ class ChannelExit:
                                       packet)
 
     def parse_channel_init(self, channel_init):
-        ip, port, _ = cut(channel_init, IPV4_LEN, IPV4_LEN + PORT_LEN)
+        ip, port, _ = cut(channel_init, IPV4_LEN, PORT_LEN)
 
         ip = b2ip(ip)
         port = b2i(port)

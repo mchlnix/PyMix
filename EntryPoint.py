@@ -77,7 +77,7 @@ class EntryPoint:
         header is cut off, parsed and mapped to a channel. Then the payload is
         separated into mix fragments and sent out with the channel id in front.
         """
-        dest_ip, dest_port, _ = cut(request, 4, 6)
+        dest_ip, dest_port, _ = cut(request, IPV4_LEN, PORT_LEN)
 
         dest_addr = (b2ip(dest_ip), b2i(dest_port))
 
