@@ -9,7 +9,7 @@ from Crypto.Random.random import randint
 from Crypto.Util import Counter
 
 from constants import MAX_CHAN_ID, MIN_CHAN_ID, SYM_KEY_LEN, CTR_PREFIX_LEN, \
-    GCM_MAC_LEN
+    GCM_MAC_LEN, CHAN_ID_SIZE, RESERVED_LEN, FRAGMENT_HEADER_LEN, NONCE_LEN
 
 BYTE_ORDER = "big"
 
@@ -183,5 +183,6 @@ def ctr_cipher(key, counter):
 
 def gcm_cipher(key, counter):
     # nbits = 8 bytes + prefix = 8 bytes
-    ctr = Counter.new(nbits=64, prefix=i2b(counter, CTR_PREFIX_LEN))
-    return AES.new(key, AES.MODE_GCM, counter=ctr, mac_len=GCM_MAC_LEN)
+    return AES.new(key, AES.MODE_GCM,
+                   nonce=i2b(counter, CTR_PREFIX_LEN) + bytes(NONCE_LEN - CTR_PREFIX_LEN),
+                   mac_len=GCM_MAC_LEN)
