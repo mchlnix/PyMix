@@ -9,8 +9,9 @@ from Crypto.Random import get_random_bytes
 from Crypto.Random.random import StrongRandom
 
 from UDPChannel import ChannelMid
-from constants import CHAN_ID_SIZE, UDP_MTU, ASYM_OUTPUT_LEN, ASYM_PADDING_LEN
-from util import read_cfg_values, cut, b2i
+from constants import CHAN_ID_SIZE, UDP_MTU, ASYM_OUTPUT_LEN, ASYM_PADDING_LEN, \
+    FRAGMENT_HEADER_LEN, CTR_PREFIX_LEN, SYM_KEY_LEN, GCM_MAC_LEN
+from util import read_cfg_values, cut, b2i, gcm_cipher, gen_ctr_prefix
 
 STORE_LIMIT = 1
 
@@ -40,7 +41,7 @@ class Mix:
 
         print("Mix.py listening on {}".format(own_addr))
 
-    def handle_mix_fragment(self, fragment):
+    def handle_mix_fragment(self, packet):
         """Handles a message coming in from a client to be sent over the mix
         chain or from a mix earlier in the chain to its ultimate recipient. The
         given payload must be decrypted with the mixes symmetric key and the
@@ -48,25 +49,34 @@ class Mix:
         the client or previous mix to an outgoing channel id mapped to it by
         this mix instance. The prepared packets are stored to be sent out
         later."""
-        # connect incoming chan id with address of the packet
-        in_id, payload = cut(fragment, CHAN_ID_SIZE)
+        link_ctr, header, mac, fragment = cut(packet, CTR_PREFIX_LEN,
+                                              FRAGMENT_HEADER_LEN, GCM_MAC_LEN)
+
+        cipher = gcm_cipher(bytes(SYM_KEY_LEN), b2i(link_ctr))
+
+        plain_header = cipher.decrypt_and_verify(header, mac)
+
+        in_id, msg_ctr, reserved = cut(plain_header, CHAN_ID_SIZE,
+                                       CTR_PREFIX_LEN)
+
         in_id = b2i(in_id)
 
+        # connect incoming chan id with address of the packet
         if in_id in ChannelMid.table_in.keys():
             # existing channel
             channel = ChannelMid.table_in[in_id]
-            channel.forward_request(payload)
+            channel.forward_request(msg_ctr + fragment)
         else:
             # new channel
             # Decrypt only the first block asymmetrically
             try:
-                asym_plain = self.cipher.decrypt(payload[0:ASYM_OUTPUT_LEN])
+                asym_plain = self.cipher.decrypt(fragment[0:ASYM_OUTPUT_LEN])
 
                 # prepend back to the rest of the cipher text
                 # TODO use pad() after setting the frag size constant with the
                 # ctrs
-                plain = asym_plain + payload[ASYM_OUTPUT_LEN:] + \
-                    get_random_bytes(ASYM_PADDING_LEN)
+                plain = asym_plain + fragment[ASYM_OUTPUT_LEN:] + \
+                        get_random_bytes(ASYM_PADDING_LEN)
 
                 channel = ChannelMid(in_id)
                 channel.parse_channel_init(plain)
@@ -81,12 +91,21 @@ class Mix:
         expected nor supported. Expect a KeyError in that case."""
         # map the out going id, we gave the responder to the incoming id the
         # packet had, then get the src ip for that channel id
-        out_id, payload = cut(response, CHAN_ID_SIZE)
+        link_ctr, header, mac, fragment = cut(response, CTR_PREFIX_LEN,
+                                              FRAGMENT_HEADER_LEN, GCM_MAC_LEN)
+
+        cipher = gcm_cipher(bytes(SYM_KEY_LEN), b2i(link_ctr))
+
+        plain_header = cipher.decrypt_and_verify(header, mac)
+
+        out_id, msg_ctr, reserved = cut(plain_header, CHAN_ID_SIZE,
+                                        CTR_PREFIX_LEN)
+
         out_id = b2i(out_id)
 
         channel = ChannelMid.table_out[out_id]
 
-        channel.forward_response(payload)
+        channel.forward_response(msg_ctr + fragment)
 
     def run(self):
         while True:
@@ -124,8 +143,7 @@ class Mix:
 
 
 if __name__ == "__main__":
-    ap = ArgumentParser(description="Very simple mix implementation in " +
-                        "python.")
+    ap = ArgumentParser(description="Very simple mix implementation in python.")
     ap.add_argument("config",
                     help="A file containing configurations for the mix.")
 
