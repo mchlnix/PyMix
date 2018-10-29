@@ -9,11 +9,10 @@ from Crypto.PublicKey import RSA
 
 from MixMessage import MixMessageStore
 from UDPChannel import ChannelEntry
-from constants import CHAN_ID_SIZE, CTR_PREFIX_LEN, IPV4_LEN, PORT_LEN, \
-    RESERVED_LEN
-from util import b2i, read_cfg_values, cut, b2ip, gcm_cipher, gen_ctr_prefix, \
-    i2b
-from util import parse_ip_port
+from constants import CHAN_ID_SIZE, IPV4_LEN, PORT_LEN, \
+    SYM_KEY_LEN
+from util import b2i, read_cfg_values, cut, b2ip, link_encrypt, parse_ip_port, \
+    link_decrypt
 
 UDP_MTU = 65535
 
@@ -63,12 +62,11 @@ class EntryPoint:
         """Takes a mix fragment and the channel id it came from. This
         represents a part of a response that was send back through the mix
         chain."""
-        channel_id, fragment = cut(response, CHAN_ID_SIZE)
-        channel_id = b2i(channel_id)
+        chan_id, msg_ctr, fragment = link_decrypt(bytes(SYM_KEY_LEN), response)
 
-        channel = ChannelEntry.table[channel_id]
+        channel = ChannelEntry.table[chan_id]
 
-        channel.recv_response_fragment(fragment)
+        channel.recv_response_fragment(msg_ctr + fragment)
 
         # send received responses to their respective recipients without
         # waiting
@@ -80,7 +78,7 @@ class EntryPoint:
         header is cut off, parsed and mapped to a channel. Then the payload is
         separated into mix fragments and sent out with the channel id in front.
         """
-        dest_ip, dest_port, _ = cut(request, IPV4_LEN, PORT_LEN)
+        dest_ip, dest_port, payload = cut(request, IPV4_LEN, PORT_LEN)
 
         dest_addr = (b2ip(dest_ip), b2i(dest_port))
 
@@ -90,12 +88,13 @@ class EntryPoint:
             self.ips2id[(src_addr, dest_addr)] = channel.chan_id
 
             init_msg = channel.chan_init_msg(self.mix_ciphers)
+
             ChannelEntry.to_mix.append(init_msg)  # TODO better way
         else:
             channel = ChannelEntry.table[self.ips2id[src_addr, dest_addr]]
 
         # add fragments to internal packet list
-        channel.make_request_fragments(request[6:])
+        channel.make_request_fragments(payload)
 
     def run(self):
         """Starts the EntryPoint main loop, listening on the given address and
@@ -116,21 +115,9 @@ class EntryPoint:
 
             # send to mix
             for packet in ChannelEntry.to_mix:
-                chan_id, ctr_prefix, payload = cut(packet, CHAN_ID_SIZE,
-                                                   CTR_PREFIX_LEN)
+                cipher = link_encrypt(bytes(SYM_KEY_LEN), packet)
 
-                link_ctr = gen_ctr_prefix()
-
-                # use all 0s as link key, since they can not be exchanged yet
-                cipher = gcm_cipher(bytes(16), link_ctr)
-
-                # ctr encrypt the header with a random link counter prefix
-                header, mac = cipher.encrypt(
-                    chan_id + ctr_prefix + bytes(RESERVED_LEN))
-
-                self.socket.sendto(
-                    i2b(link_ctr, CTR_PREFIX_LEN) + header + mac + payload,
-                    mix_addr)
+                self.socket.sendto(cipher, mix_addr)
 
             ChannelEntry.to_mix.clear()
 
