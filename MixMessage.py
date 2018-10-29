@@ -1,6 +1,6 @@
 from random import randint
 
-from constants import CTR_PREFIX_LEN
+from constants import CTR_PREFIX_LEN, CHAN_ID_SIZE
 from util import padded, partitions as fragments, partitioned as fragmented
 from util import b2i, i2b
 
@@ -18,7 +18,7 @@ from util import b2i, i2b
 
 # typical amount of mixes in the mix chain is 3
 
-PACKET_SIZE_LIMIT = 306
+PACKET_SIZE_LIMIT = 422 - CHAN_ID_SIZE
 
 FRAG_SIZE = PACKET_SIZE_LIMIT - 3 * CTR_PREFIX_LEN
 
