@@ -9,9 +9,9 @@ from Crypto.Random import get_random_bytes
 from Crypto.Random.random import StrongRandom
 
 from UDPChannel import ChannelMid
-from constants import CHAN_ID_SIZE, UDP_MTU, ASYM_OUTPUT_LEN, ASYM_PADDING_LEN, \
-    FRAGMENT_HEADER_LEN, CTR_PREFIX_LEN, SYM_KEY_LEN, GCM_MAC_LEN
-from util import read_cfg_values, cut, b2i, gcm_cipher, gen_ctr_prefix
+from constants import UDP_MTU, ASYM_OUTPUT_LEN, ASYM_PADDING_LEN, \
+    SYM_KEY_LEN
+from util import read_cfg_values, link_decrypt, link_encrypt
 
 STORE_LIMIT = 1
 
@@ -49,17 +49,7 @@ class Mix:
         the client or previous mix to an outgoing channel id mapped to it by
         this mix instance. The prepared packets are stored to be sent out
         later."""
-        link_ctr, header, mac, fragment = cut(packet, CTR_PREFIX_LEN,
-                                              FRAGMENT_HEADER_LEN, GCM_MAC_LEN)
-
-        cipher = gcm_cipher(bytes(SYM_KEY_LEN), b2i(link_ctr))
-
-        plain_header = cipher.decrypt_and_verify(header, mac)
-
-        in_id, msg_ctr, reserved = cut(plain_header, CHAN_ID_SIZE,
-                                       CTR_PREFIX_LEN)
-
-        in_id = b2i(in_id)
+        in_id, msg_ctr, fragment = link_decrypt(bytes(SYM_KEY_LEN), packet)
 
         # connect incoming chan id with address of the packet
         if in_id in ChannelMid.table_in.keys():
@@ -91,17 +81,7 @@ class Mix:
         expected nor supported. Expect a KeyError in that case."""
         # map the out going id, we gave the responder to the incoming id the
         # packet had, then get the src ip for that channel id
-        link_ctr, header, mac, fragment = cut(response, CTR_PREFIX_LEN,
-                                              FRAGMENT_HEADER_LEN, GCM_MAC_LEN)
-
-        cipher = gcm_cipher(bytes(SYM_KEY_LEN), b2i(link_ctr))
-
-        plain_header = cipher.decrypt_and_verify(header, mac)
-
-        out_id, msg_ctr, reserved = cut(plain_header, CHAN_ID_SIZE,
-                                        CTR_PREFIX_LEN)
-
-        out_id = b2i(out_id)
+        out_id, msg_ctr, fragment = link_decrypt(bytes(SYM_KEY_LEN), response)
 
         channel = ChannelMid.table_out[out_id]
 
@@ -129,7 +109,10 @@ class Mix:
                 for _ in range(STORE_LIMIT):
                     # use bound socket to send packets
                     packet = ChannelMid.requests.pop()
-                    self.incoming.sendto(packet, self.next_addr)
+
+                    enc_packet = link_encrypt(bytes(SYM_KEY_LEN), packet)
+
+                    self.incoming.sendto(enc_packet, self.next_addr)
 
             # send out responses
             if len(ChannelMid.responses) >= STORE_LIMIT:
@@ -137,9 +120,11 @@ class Mix:
                 StrongRandom().shuffle(ChannelMid.responses)
                 # send STORE_LIMIT packets
                 for _ in range(STORE_LIMIT):
-                    # use bound socket to send packets
                     packet = ChannelMid.responses.pop()
-                    self.incoming.sendto(packet, self.mix_addr)
+
+                    enc_packet = link_encrypt(bytes(SYM_KEY_LEN), packet)
+
+                    self.incoming.sendto(enc_packet, self.mix_addr)
 
 
 if __name__ == "__main__":
