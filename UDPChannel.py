@@ -68,7 +68,10 @@ class ChannelEntry:
 
         print("Created Channel Init Message. Len:", len(plain))
 
-        return i2b(self.chan_id, CHAN_ID_SIZE) + plain
+        # we add a random ctr prefix, because the link encryption expects there
+        # to be one, even though the channel init wasn't sym encrypted
+        return i2b(self.chan_id, CHAN_ID_SIZE) + get_random_bytes(
+            CTR_PREFIX_LEN) + plain
 
     def make_request_fragments(self, request):
         packet = []
@@ -230,8 +233,11 @@ class ChannelMid:
         print(self.in_chan_id, "->", self.out_chan_id, "len:", len(cipher_text))
         print("Own ctr", self.ctr_own, "Next ctr", self.ctr_next)
 
+        # we add an empty ctr prefix, because the link encryption expects there
+        # to be one, even though the channel init wasn't sym encrypted
         ChannelMid.requests.append(i2b(self.out_chan_id, CHAN_ID_SIZE) +
-                                   cipher_text)
+                                   get_random_bytes(
+                                       CTR_PREFIX_LEN) + cipher_text)
 
     @staticmethod
     def random_channel():
