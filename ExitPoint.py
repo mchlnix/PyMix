@@ -8,10 +8,9 @@ from selectors import EVENT_READ
 # standard library
 from socket import socket, AF_INET, SOCK_DGRAM as UDP
 
-# own
 from UDPChannel import ChannelExit
-from constants import UDP_MTU, CHAN_ID_SIZE
-from util import parse_ip_port, cut, b2i
+from constants import UDP_MTU, CHAN_ID_SIZE, SYM_KEY_LEN, CTR_PREFIX_LEN
+from util import parse_ip_port, cut, link_decrypt, link_encrypt
 
 
 class ExitPoint:
@@ -48,34 +47,41 @@ class ExitPoint:
                     else:
                         packet = sock.recv(UDP_MTU)
 
-                    # parse packet
-                    channel_id, payload = cut(packet, CHAN_ID_SIZE)
-                    channel_id = b2i(channel_id)
+                    chan_id, msg_ctr, fragment = link_decrypt(
+                        bytes(SYM_KEY_LEN), packet)
 
                     # new channel detected
-                    if channel_id not in ChannelExit.table.keys():
+                    if chan_id not in ChannelExit.table.keys():
                         # automatically puts it into the channel table
                         # of ChannelExit
-                        new_channel = ChannelExit(channel_id)
+                        new_channel = ChannelExit(chan_id)
 
                         # first message of a channel is channel init
-                        new_channel.parse_channel_init(payload)
+                        new_channel.parse_channel_init(fragment)
                     else:
                         # request from an already established channel
-                        ChannelExit.table[channel_id].recv_request(payload)
+                        ChannelExit.table[chan_id].recv_request(
+                            msg_ctr + fragment)
 
                 # send responses to mix
                 for packet in ChannelExit.to_mix:
-                    self.sock_to_mix.send(packet)
+                    chan_id, fragment = cut(packet, CHAN_ID_SIZE)
+
+                    msg_ctr = bytes(CTR_PREFIX_LEN)
+
+                    cipher = link_encrypt(bytes(SYM_KEY_LEN),
+                                          chan_id + msg_ctr + fragment)
+
+                    self.sock_to_mix.send(cipher)
 
                 ChannelExit.to_mix.clear()
 
 
 if __name__ == "__main__":
     parser = ArgParser(description="Receives data on the specified ip:port" +
-                       "using UDP and prints it on stdout.")
+                                   "using UDP and prints it on stdout.")
     parser.add_argument("ip:port", help="IP and Port pair to listen for " +
-                        "datagrams on")
+                                        "datagrams on")
 
     args = parser.parse_args()
 

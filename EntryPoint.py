@@ -9,8 +9,7 @@ from Crypto.PublicKey import RSA
 
 from MixMessage import MixMessageStore
 from UDPChannel import ChannelEntry
-from constants import CHAN_ID_SIZE, IPV4_LEN, PORT_LEN, \
-    SYM_KEY_LEN
+from constants import IPV4_LEN, PORT_LEN, SYM_KEY_LEN
 from util import b2i, read_cfg_values, cut, b2ip, link_encrypt, parse_ip_port, \
     link_decrypt
 
