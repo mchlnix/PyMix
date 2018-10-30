@@ -60,14 +60,9 @@ class ChannelEntry:
                                                      reversed(self.keys),
                                                      self.counters,
                                                      [0] + self.counters[0:-1]):
-            plain = cipher.encrypt(key +
-                                   i2b(ctr_start, CTR_PREFIX_LEN) +
+            plain = cipher.encrypt(key + i2b(ctr_start, CTR_PREFIX_LEN) +
                                    i2b(ctr_check, CTR_PREFIX_LEN) +
                                    plain[0:cut_off]) + plain[cut_off:]
-
-        plain = padded(plain, FRAG_SIZE + len(mix_ciphers) * CTR_MODE_PADDING)
-
-        print("Created Channel Init Message. Len:", len(plain))
 
         # we add a random ctr prefix, because the link encryption expects there
         # to be one, even though the channel init wasn't sym encrypted
@@ -87,6 +82,9 @@ class ChannelEntry:
     def recv_response_fragment(self, response):
         print(self.src_addr, "<-", self.chan_id, "len:", len(response))
         fragment = self.decrypt_fragment(response)
+
+        # the endpoint adds a ctr prefix of zeroes, which we need to get rid of
+        _, fragment = cut(fragment, CTR_PREFIX_LEN)
 
         self.mix_msg_store.parse_fragment(fragment)
 
@@ -176,19 +174,19 @@ class ChannelMid:
         #payload, _ = cut(response, -CTR_MODE_PADDING)
 
         if self.last_next_ctrs[-1] != 0:  # if this is 0 don't check for a ctr
-            ctr, _ = cut(payload, CTR_PREFIX_LEN)
-            ctr = b2i(ctr)
+            ctr, _ = cut(response, CTR_PREFIX_LEN)
+            ctr_int = b2i(ctr)
 
-            if not ChannelMid._check_replay_window(self.last_next_ctrs, ctr):
+            if not ChannelMid._check_replay_window(self.last_next_ctrs, ctr_int):
                 return
 
         cipher = ctr_cipher(self.key, self.ctr_own)
-        response = i2b(self.ctr_own, CTR_PREFIX_LEN) + cipher.encrypt(payload)
+
+        response = i2b(self.in_chan_id, CHAN_ID_SIZE) + i2b(self.ctr_own, CTR_PREFIX_LEN) + cipher.encrypt(response)
 
         self.ctr_own += 1
 
-        ChannelMid.responses.append(i2b(self.in_chan_id, CHAN_ID_SIZE) +
-                                    response)
+        ChannelMid.responses.append(response)
 
     @staticmethod
     def _check_replay_window(ctr_list, ctr):
