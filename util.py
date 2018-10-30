@@ -84,9 +84,9 @@ def prependlength(packet):
     lenbytes = bytes([length])
 
     if len(lenbytes) > 4:
-        raise ValueError("Packet is longer than {} bytes.".format(2**32-1))
+        raise ValueError("Packet is longer than {} bytes.".format(2 ** 32 - 1))
 
-    return bytes(4-len(lenbytes))+lenbytes+packet
+    return bytes(4 - len(lenbytes)) + lenbytes + packet
 
 
 def items_from_file(filepath):

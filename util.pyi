@@ -2,7 +2,6 @@ from typing import List, Sequence, Dict, Tuple
 
 from Crypto.Cipher._mode_ctr import CtrMode
 from Crypto.Cipher._mode_gcm import GcmMode
-
 from Types import AddressTuple
 
 
