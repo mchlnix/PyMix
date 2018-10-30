@@ -12,7 +12,7 @@ style:
 
 .PHONY: lint
 lint:
-	mypy --show-traceback stubs/ EntryPoint.py ExitPoint.py Mix.py
+	MYPYPATH="stubs" mypy --show-traceback EntryPoint.py ExitPoint.py Mix.py
 	flake8 --max-line-length=80 *.py */*.py
 	pylint3 --rcfile config/pylint3.cfg *.py */*.py
 
