@@ -1,8 +1,8 @@
 from random import randint
 
-from constants import CTR_PREFIX_LEN, CHAN_ID_SIZE
-from util import padded, partitions as fragments, partitioned as fragmented
+from constants import CTR_PREFIX_LEN, SYM_KEY_LEN, ASYM_PADDING_LEN
 from util import b2i, i2b
+from util import padded, partitions as fragments, partitioned as fragmented
 
 #########################################
 # MixMessage Fragment Format            #
@@ -18,9 +18,14 @@ from util import b2i, i2b
 
 # typical amount of mixes in the mix chain is 3
 
-PACKET_SIZE_LIMIT = 422 - CHAN_ID_SIZE
+MIX_COUNT = 3
 
-FRAG_SIZE = PACKET_SIZE_LIMIT - 3 * CTR_PREFIX_LEN
+# channel init msg size
+PACKET_SIZE = 256 + (MIX_COUNT - 1) * (ASYM_PADDING_LEN +
+                                       SYM_KEY_LEN + 2 * CTR_PREFIX_LEN)
+
+# one ctr prefix is in the header
+FRAG_SIZE = PACKET_SIZE - (MIX_COUNT - 1) * CTR_PREFIX_LEN
 
 ID_SIZE = 4
 
