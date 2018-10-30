@@ -173,7 +173,7 @@ class ChannelMid:
         print(self.in_chan_id, "<-", self.out_chan_id, "len:", len(response))
 
         # cut the padding off
-        payload, _ = cut(response, -CTR_MODE_PADDING)
+        #payload, _ = cut(response, -CTR_MODE_PADDING)
 
         if self.last_next_ctrs[-1] != 0:  # if this is 0 don't check for a ctr
             ctr, _ = cut(payload, CTR_PREFIX_LEN)
@@ -301,7 +301,7 @@ class ChannelExit:
         mix_frags = make_fragments(data)
 
         for frag in mix_frags:
-            packet = padded(frag, FRAG_SIZE + self.padding)
+            packet = padded(frag, FRAG_SIZE)  # + self.padding)
 
             print(self.in_chan_id, "<-", self.dest_addr, "len:", len(packet))
 
