@@ -184,7 +184,8 @@ def ctr_cipher(key, counter):
 def gcm_cipher(key, counter):
     # nbits = 8 bytes + prefix = 8 bytes
     return AES.new(key, AES.MODE_GCM,
-                   nonce=i2b(counter, CTR_PREFIX_LEN) + bytes(NONCE_LEN - CTR_PREFIX_LEN),
+                   nonce=i2b(counter, CTR_PREFIX_LEN) +
+                   bytes(NONCE_LEN - CTR_PREFIX_LEN),
                    mac_len=GCM_MAC_LEN)
 
 
@@ -211,6 +212,7 @@ def link_decrypt(key, cipher_txt):
 
     plain_header = cipher.decrypt_and_verify(header, mac)
 
-    chan_id, msg_ctr, reserved = cut(plain_header, CHAN_ID_SIZE, CTR_PREFIX_LEN)
+    chan_id, msg_ctr, reserved = cut(
+        plain_header, CHAN_ID_SIZE, CTR_PREFIX_LEN)
 
     return b2i(chan_id), msg_ctr, fragment

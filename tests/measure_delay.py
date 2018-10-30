@@ -35,7 +35,8 @@ print(out_format.format(delays_sum, delays_srt[0] * 1000,
                         delays_srt[-1] * 1000))
 print()
 
-jitter = [abs(delays_lst[i] - delays_lst[i + 1]) for i in range(delays_len - 1)]
+jitter = [abs(delays_lst[i] - delays_lst[i + 1])
+          for i in range(delays_len - 1)]
 jitter_srt = sorted(jitter)
 jitter_sum = sum(jitter)
 jitter_len = len(jitter)

@@ -30,6 +30,6 @@ if __name__ == "__main__":
             print(addr, len(data), data.decode("utf-8"))
             sock.sendto(bytes("Got Message. Thanks.", "utf-8"), addr)
 
-        except KeyboardInterrupt as kbi:
+        except KeyboardInterrupt:
             print("Received Ctrl+C, quitting.")
             break

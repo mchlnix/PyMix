@@ -38,5 +38,5 @@ if __name__ == "__main__":
 
             print(str(b2i(data[0:4])).rjust(7), "{:.9f}".format(time()))
 
-        except KeyboardInterrupt as kbi:
+        except KeyboardInterrupt:
             break

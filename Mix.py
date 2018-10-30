@@ -66,7 +66,7 @@ class Mix:
                 # TODO use pad() after setting the frag size constant with the
                 # ctrs
                 plain = asym_plain + fragment[ASYM_OUTPUT_LEN:] + \
-                        get_random_bytes(ASYM_PADDING_LEN)
+                    get_random_bytes(ASYM_PADDING_LEN)
 
                 channel = ChannelMid(in_id)
                 channel.parse_channel_init(plain)
@@ -128,7 +128,8 @@ class Mix:
 
 
 if __name__ == "__main__":
-    ap = ArgumentParser(description="Very simple mix implementation in python.")
+    ap = ArgumentParser(
+        description="Very simple mix implementation in python.")
     ap.add_argument("config",
                     help="A file containing configurations for the mix.")
 

@@ -6,6 +6,10 @@ chain:
 manual:
 	bash start_chain manual
 
+.PHONY: style
+style:
+	autopep8 --in-place *.py tests/*.py
+
 .PHONY: lint
 lint:
 	mypy --show-traceback stubs/ EntryPoint.py ExitPoint.py Mix.py

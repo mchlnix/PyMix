@@ -124,7 +124,8 @@ class EntryPoint:
 if __name__ == "__main__":
     ap = ArgumentParser()
 
-    ap.add_argument(OWN_ADDR_ARG, help="ip and port, to listen for packets on.")
+    ap.add_argument(
+        OWN_ADDR_ARG, help="ip and port, to listen for packets on.")
     ap.add_argument("config", help="Config file describing the mix chain.")
 
     args = ap.parse_args()

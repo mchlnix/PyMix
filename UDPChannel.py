@@ -74,7 +74,8 @@ class ChannelEntry:
         for fragment in make_fragments(request):
             packet = self.encrypt_fragment(fragment)
 
-            ChannelEntry.to_mix.append(i2b(self.chan_id, CHAN_ID_SIZE) + packet)
+            ChannelEntry.to_mix.append(
+                i2b(self.chan_id, CHAN_ID_SIZE) + packet)
 
         print(self.src_addr, "->", self.chan_id, "len:", len(request), "->",
               len(packet))
@@ -101,7 +102,8 @@ class ChannelEntry:
         for key, ctr_start in zip(reversed(self.keys), self.counters):
             cipher = ctr_cipher(key, ctr_start)
 
-            fragment = i2b(ctr_start, CTR_PREFIX_LEN) + cipher.encrypt(fragment)
+            fragment = i2b(ctr_start, CTR_PREFIX_LEN) + \
+                cipher.encrypt(fragment)
 
         return fragment
 
@@ -171,18 +173,20 @@ class ChannelMid:
         print(self.in_chan_id, "<-", self.out_chan_id, "len:", len(response))
 
         # cut the padding off
-        #payload, _ = cut(response, -CTR_MODE_PADDING)
+        # payload, _ = cut(response, -CTR_MODE_PADDING)
 
         if self.last_next_ctrs[-1] != 0:  # if this is 0 don't check for a ctr
             ctr, _ = cut(response, CTR_PREFIX_LEN)
             ctr_int = b2i(ctr)
 
-            if not ChannelMid._check_replay_window(self.last_next_ctrs, ctr_int):
+            if not ChannelMid._check_replay_window(self.last_next_ctrs,
+                                                   ctr_int):
                 return
 
         cipher = ctr_cipher(self.key, self.ctr_own)
 
-        response = i2b(self.in_chan_id, CHAN_ID_SIZE) + i2b(self.ctr_own, CTR_PREFIX_LEN) + cipher.encrypt(response)
+        response = i2b(self.in_chan_id, CHAN_ID_SIZE) + \
+            i2b(self.ctr_own, CTR_PREFIX_LEN) + cipher.encrypt(response)
 
         self.ctr_own += 1
 
@@ -227,7 +231,8 @@ class ChannelMid:
         # detection on other mixes
         self.ctr_own += 1
 
-        cipher_text = channel_init[payload_pos:] + get_random_bytes(payload_pos)
+        cipher_text = channel_init[payload_pos:] + \
+            get_random_bytes(payload_pos)
 
         print(self.in_chan_id, "->", self.out_chan_id, "len:", len(cipher_text))
         print("Own ctr", self.ctr_own, "Next ctr", self.ctr_next)
