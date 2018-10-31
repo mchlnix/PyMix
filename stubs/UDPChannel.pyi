@@ -3,7 +3,7 @@ from socket import socket
 from typing import List, Dict, ClassVar
 
 from MixMessage import MixMessage, MixMessageStore
-from Types import AddressTuple
+from stubs.Types import AddressTuple
 
 
 class ChannelEntry:
@@ -17,7 +17,7 @@ class ChannelEntry:
     chan_id: int
     keys: List[bytes]
     counters: List[int]
-    packers: List[bytes]
+    packets: List[bytes]
     mix_msg_store: MixMessageStore
 
     def __init__(self, src_addr: AddressTuple, dest_addr: AddressTuple, mix_count: int) -> None: ...
