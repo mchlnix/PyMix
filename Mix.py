@@ -95,7 +95,7 @@ class Mix:
 
         channel = ChannelMid.table_out[out_id]
 
-        channel.forward_response(msg_ctr + fragment)
+        channel.forward_response(msg_type + msg_ctr + fragment)
 
     def run(self):
         while True:

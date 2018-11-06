@@ -10,7 +10,7 @@ from socket import socket, AF_INET, SOCK_DGRAM as UDP
 
 from UDPChannel import ChannelExit
 from constants import UDP_MTU, CHAN_ID_SIZE, SYM_KEY_LEN, CTR_PREFIX_LEN, \
-    DATA_MSG_FLAG, CHAN_INIT_MSG_FLAG
+    DATA_MSG_FLAG, CHAN_INIT_MSG_FLAG, FLAG_LEN
 from util import parse_ip_port, cut, link_decrypt, link_encrypt
 
 
@@ -63,6 +63,8 @@ class ExitPoint:
 
                             # first message of a channel is channel init
                             new_channel.parse_channel_init(fragment)
+
+                            new_channel.send_chan_confirm()
                     else:
                         # request from an already established channel
 
@@ -75,11 +77,11 @@ class ExitPoint:
 
                 # send responses to mix
                 for packet in ChannelExit.to_mix:
-                    chan_id, fragment = cut(packet, CHAN_ID_SIZE)
+                    msg_type, chan_id, fragment = cut(packet, FLAG_LEN, CHAN_ID_SIZE)
 
                     msg_ctr = bytes(CTR_PREFIX_LEN)
 
-                    cipher = link_encrypt(bytes(SYM_KEY_LEN), DATA_MSG_FLAG +
+                    cipher = link_encrypt(bytes(SYM_KEY_LEN), msg_type +
                                           chan_id + msg_ctr + fragment)
 
                     self.sock_to_mix.send(cipher)

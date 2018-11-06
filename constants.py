@@ -34,3 +34,4 @@ FLAG_LEN = 1
 
 DATA_MSG_FLAG = int.to_bytes(1, 1, "big")
 CHAN_INIT_MSG_FLAG = int.to_bytes(2, 1, "big")
+CHAN_CONFIRM_MSG_FLAG = int.to_bytes(3, 1, "big")

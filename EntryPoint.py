@@ -9,7 +9,7 @@ from Crypto.PublicKey import RSA
 
 from MixMessage import MixMessageStore
 from UDPChannel import ChannelEntry
-from constants import IPV4_LEN, PORT_LEN, SYM_KEY_LEN
+from constants import IPV4_LEN, PORT_LEN, SYM_KEY_LEN, CHAN_CONFIRM_MSG_FLAG
 from util import b2i, read_cfg_values, cut, b2ip, link_encrypt, parse_ip_port, \
     link_decrypt
 
@@ -66,7 +66,10 @@ class EntryPoint:
 
         channel = ChannelEntry.table[chan_id]
 
-        channel.recv_response_fragment(msg_ctr + fragment)
+        if msg_type == CHAN_CONFIRM_MSG_FLAG:
+            channel.chan_confirm_msg(fragment)
+        else:
+            channel.recv_response_fragment(msg_ctr + fragment)
 
         # send received responses to their respective recipients without
         # waiting
