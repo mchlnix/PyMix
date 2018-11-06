@@ -1,14 +1,12 @@
 from socket import socket
 
+from Crypto.Cipher.PKCS1_OAEP import PKCS1OAEP_Cipher
 from Types import AddressTuple
-from Ciphers.Cipher import Cipher
 
 STORE_LIMIT: int
 
-EXPLICIT_IV_SIZE: int
-
 class Mix:
-    cipher: Cipher
+    cipher: PKCS1OAEP_Cipher
     incoming: socket
     next_addr: AddressTuple
     mix_addr: AddressTuple

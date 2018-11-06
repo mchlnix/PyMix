@@ -3,7 +3,7 @@
 from argparse import ArgumentParser
 from socket import socket, AF_INET, SOCK_DGRAM as UDP
 
-from Crypto.Cipher import AES, PKCS1_OAEP
+from Crypto.Cipher import PKCS1_OAEP
 from Crypto.PublicKey import RSA
 from Crypto.Random import get_random_bytes
 from Crypto.Random.random import StrongRandom
@@ -14,8 +14,6 @@ from constants import UDP_MTU, ASYM_OUTPUT_LEN, ASYM_PADDING_LEN, \
 from util import read_cfg_values, link_decrypt, link_encrypt
 
 STORE_LIMIT = 1
-
-EXPLICIT_IV_SIZE = AES.block_size
 
 
 class Mix:

@@ -3,7 +3,7 @@ from socket import socket
 from typing import List, Dict, ClassVar
 
 from MixMessage import MixMessage, MixMessageStore
-from stubs.Types import AddressTuple
+from Types import AddressTuple
 
 
 class ChannelEntry:
