@@ -61,7 +61,8 @@ class EntryPoint:
         """Takes a mix fragment and the channel id it came from. This
         represents a part of a response that was send back through the mix
         chain."""
-        chan_id, msg_ctr, fragment = link_decrypt(bytes(SYM_KEY_LEN), response)
+        chan_id, msg_ctr, fragment, msg_type = link_decrypt(
+            bytes(SYM_KEY_LEN), response)
 
         channel = ChannelEntry.table[chan_id]
 

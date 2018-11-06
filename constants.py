@@ -29,3 +29,8 @@ PORT_LEN = 2
 RESERVED_LEN = 6
 
 FRAGMENT_HEADER_LEN = CHAN_ID_SIZE + CTR_PREFIX_LEN + RESERVED_LEN
+
+FLAG_LEN = 1
+
+DATA_MSG_FLAG = int.to_bytes(1, 1, "big")
+CHAN_INIT_MSG_FLAG = int.to_bytes(2, 1, "big")

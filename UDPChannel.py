@@ -7,7 +7,7 @@ from Crypto.Random import get_random_bytes
 from MixMessage import FRAG_SIZE, MixMessageStore, make_fragments
 from constants import CHAN_ID_SIZE, MIN_PORT, MAX_PORT, UDP_MTU, \
     REPLAY_WINDOW_SIZE, ASYM_INPUT_LEN, SYM_KEY_LEN, CTR_PREFIX_LEN, \
-    CTR_MODE_PADDING, IPV4_LEN, PORT_LEN
+    CTR_MODE_PADDING, IPV4_LEN, PORT_LEN, CHAN_INIT_MSG_FLAG, DATA_MSG_FLAG
 from util import i2b, b2i, padded, random_channel_id, cut, b2ip, ip2b, \
     gen_ctr_prefix, gen_sym_key, ctr_cipher
 
@@ -66,7 +66,7 @@ class ChannelEntry:
 
         # we add a random ctr prefix, because the link encryption expects there
         # to be one, even though the channel init wasn't sym encrypted
-        return i2b(self.chan_id, CHAN_ID_SIZE) + get_random_bytes(
+        return CHAN_INIT_MSG_FLAG + i2b(self.chan_id, CHAN_ID_SIZE) + get_random_bytes(
             CTR_PREFIX_LEN) + plain
 
     def make_request_fragments(self, request):
@@ -75,7 +75,7 @@ class ChannelEntry:
             packet = self.encrypt_fragment(fragment)
 
             ChannelEntry.to_mix.append(
-                i2b(self.chan_id, CHAN_ID_SIZE) + packet)
+                DATA_MSG_FLAG + i2b(self.chan_id, CHAN_ID_SIZE) + packet)
 
         print(self.src_addr, "->", self.chan_id, "len:", len(request), "->",
               len(packet))
@@ -165,9 +165,8 @@ class ChannelMid:
 
         cipher = ctr_cipher(self.key, ctr)
 
-        ChannelMid.requests.append(i2b(self.out_chan_id, CHAN_ID_SIZE) +
-                                   cipher.decrypt(cipher_text) +
-                                   get_random_bytes(CTR_MODE_PADDING))
+        ChannelMid.requests.append(DATA_MSG_FLAG + i2b(self.out_chan_id, CHAN_ID_SIZE) +
+                                   cipher.decrypt(cipher_text) + get_random_bytes(CTR_MODE_PADDING))
 
     def forward_response(self, response):
         print(self.in_chan_id, "<-", self.out_chan_id, "len:", len(response))
@@ -185,8 +184,8 @@ class ChannelMid:
 
         cipher = ctr_cipher(self.key, self.ctr_own)
 
-        response = i2b(self.in_chan_id, CHAN_ID_SIZE) + \
-            i2b(self.ctr_own, CTR_PREFIX_LEN) + cipher.encrypt(response)
+        response = DATA_MSG_FLAG + i2b(self.in_chan_id, CHAN_ID_SIZE) + i2b(
+            self.ctr_own, CTR_PREFIX_LEN) + cipher.encrypt(response)
 
         self.ctr_own += 1
 
@@ -239,7 +238,7 @@ class ChannelMid:
 
         # we add an empty ctr prefix, because the link encryption expects there
         # to be one, even though the channel init wasn't sym encrypted
-        ChannelMid.requests.append(i2b(self.out_chan_id, CHAN_ID_SIZE) +
+        ChannelMid.requests.append(CHAN_INIT_MSG_FLAG + i2b(self.out_chan_id, CHAN_ID_SIZE) +
                                    get_random_bytes(
                                        CTR_PREFIX_LEN) + cipher_text)
 

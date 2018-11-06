@@ -9,7 +9,8 @@ from selectors import EVENT_READ
 from socket import socket, AF_INET, SOCK_DGRAM as UDP
 
 from UDPChannel import ChannelExit
-from constants import UDP_MTU, CHAN_ID_SIZE, SYM_KEY_LEN, CTR_PREFIX_LEN
+from constants import UDP_MTU, CHAN_ID_SIZE, SYM_KEY_LEN, CTR_PREFIX_LEN, \
+    DATA_MSG_FLAG, CHAN_INIT_MSG_FLAG
 from util import parse_ip_port, cut, link_decrypt, link_encrypt
 
 
@@ -47,19 +48,28 @@ class ExitPoint:
                     else:
                         packet = sock.recv(UDP_MTU)
 
-                    chan_id, msg_ctr, fragment = link_decrypt(
+                    chan_id, msg_ctr, fragment, msg_type = link_decrypt(
                         bytes(SYM_KEY_LEN), packet)
 
                     # new channel detected
                     if chan_id not in ChannelExit.table.keys():
                         # automatically puts it into the channel table
                         # of ChannelExit
-                        new_channel = ChannelExit(chan_id)
+                        if msg_type == DATA_MSG_FLAG:
+                            print(
+                                "Received Data Msg before Channel was established.")
+                        else:
+                            new_channel = ChannelExit(chan_id)
 
-                        # first message of a channel is channel init
-                        new_channel.parse_channel_init(fragment)
+                            # first message of a channel is channel init
+                            new_channel.parse_channel_init(fragment)
                     else:
                         # request from an already established channel
+
+                        if msg_type == CHAN_INIT_MSG_FLAG:
+                            raise Exception(
+                                "Received Channel init message for established Channel.")
+
                         ChannelExit.table[chan_id].recv_request(
                             msg_ctr + fragment)
 
@@ -69,7 +79,7 @@ class ExitPoint:
 
                     msg_ctr = bytes(CTR_PREFIX_LEN)
 
-                    cipher = link_encrypt(bytes(SYM_KEY_LEN),
+                    cipher = link_encrypt(bytes(SYM_KEY_LEN), DATA_MSG_FLAG +
                                           chan_id + msg_ctr + fragment)
 
                     self.sock_to_mix.send(cipher)

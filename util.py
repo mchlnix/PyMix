@@ -3,13 +3,14 @@
    builtin functionality, when it was not convenient enough to use."""
 from math import ceil
 
+from Crypto.Random.random import randint
+
 from Crypto.Cipher import AES
 from Crypto.Random import get_random_bytes
-from Crypto.Random.random import randint
 from Crypto.Util import Counter
-
 from constants import MAX_CHAN_ID, MIN_CHAN_ID, SYM_KEY_LEN, CTR_PREFIX_LEN, \
-    GCM_MAC_LEN, CHAN_ID_SIZE, RESERVED_LEN, FRAGMENT_HEADER_LEN, NONCE_LEN
+    GCM_MAC_LEN, CHAN_ID_SIZE, RESERVED_LEN, FRAGMENT_HEADER_LEN, NONCE_LEN, \
+    FLAG_LEN
 
 BYTE_ORDER = "big"
 
@@ -190,7 +191,10 @@ def gcm_cipher(key, counter):
 
 
 def link_encrypt(key, plain_txt):
-    chan_id, ctr_prefix, payload = cut(plain_txt, CHAN_ID_SIZE, CTR_PREFIX_LEN)
+    msg_type, chan_id, ctr_prefix, payload = cut(
+        plain_txt, FLAG_LEN, CHAN_ID_SIZE, CTR_PREFIX_LEN)
+
+    reserved = msg_type + get_random_bytes(RESERVED_LEN - FLAG_LEN)
 
     link_ctr = gen_ctr_prefix()
 
@@ -198,8 +202,7 @@ def link_encrypt(key, plain_txt):
     cipher = gcm_cipher(key, link_ctr)
 
     # ctr encrypt the header with a random link counter prefix
-    header, mac = cipher.encrypt_and_digest(
-        chan_id + ctr_prefix + bytes(RESERVED_LEN))
+    header, mac = cipher.encrypt_and_digest(chan_id + ctr_prefix + reserved)
 
     return i2b(link_ctr, CTR_PREFIX_LEN) + header + mac + payload
 
@@ -212,7 +215,7 @@ def link_decrypt(key, cipher_txt):
 
     plain_header = cipher.decrypt_and_verify(header, mac)
 
-    chan_id, msg_ctr, reserved = cut(
-        plain_header, CHAN_ID_SIZE, CTR_PREFIX_LEN)
+    chan_id, msg_ctr, msg_type, reserved = cut(
+        plain_header, CHAN_ID_SIZE, CTR_PREFIX_LEN, FLAG_LEN)
 
-    return b2i(chan_id), msg_ctr, fragment
+    return b2i(chan_id), msg_ctr, fragment, msg_type
