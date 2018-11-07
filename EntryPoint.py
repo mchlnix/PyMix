@@ -41,9 +41,6 @@ class EntryPoint:
         # map of (src_ip:port, dest_ip:port) to channel id
         self.ips2id = dict()
 
-        # stores tuples of payload and destination to send out
-        self.packets = []
-
         # list of the asymmetric mix ciphers to encrypt channel init messages
         self.mix_ciphers = []
 

@@ -10,7 +10,6 @@ class EntryPoint:
     mix_addr: AddressTuple
     mix_msg_store: MixMessageStore
     ips2id: Dict[Tuple[AddressTuple, AddressTuple], int]
-    packets: List[bytes]
     mix_ciphers: list
     socket: socket
 
