@@ -8,7 +8,6 @@ from Types import AddressTuple
 
 class ChannelEntry:
     out_chan_list: ClassVar[List[int]] = []
-    to_mix: ClassVar[List[bytes]]
     to_client: ClassVar[List[bytes]]
     table: ClassVar[Dict[int, ChannelEntry]]
 
@@ -19,9 +18,11 @@ class ChannelEntry:
     counters: List[int]
     packets: List[bytes]
     mix_msg_store: MixMessageStore
+    allowed_to_send: bool
 
     def __init__(self, src_addr: AddressTuple, dest_addr: AddressTuple, mix_count: int) -> None: ...
     def chan_init_msg(self, mix_cipher: list) -> bytes: ...
+    def chan_confirm_msg(self) -> None: ...
     def make_request_fragments(self, request: bytes) -> None: ...
     def recv_response_fragment(self, response: bytes) -> None: ...
     def get_completed_responses(self) -> List[MixMessage]: ...
@@ -48,6 +49,8 @@ class ChannelMid:
 
     last_prev_ctrs = List[int]
     last_next_ctrs = List[int]
+
+    initialized: bool
 
     def __init__(self, in_chan_id: int) -> None: ...
     def forward_request(self, request: bytes): ...

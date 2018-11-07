@@ -39,6 +39,7 @@ class ChannelEntry:
         self.mix_msg_store = MixMessageStore()
 
         self.allowed_to_send = False
+        self.init_msg = None
 
     def chan_init_msg(self, mix_ciphers):
         """The bytes in keys are assumed to be the resident keys of the mixes
@@ -69,11 +70,13 @@ class ChannelEntry:
 
         # we add a random ctr prefix, because the link encryption expects there
         # to be one, even though the channel init wasn't sym encrypted
-        return CHAN_INIT_MSG_FLAG + i2b(self.chan_id, CHAN_ID_SIZE) + get_random_bytes(
+        self.init_msg = CHAN_INIT_MSG_FLAG + i2b(self.chan_id, CHAN_ID_SIZE) + get_random_bytes(
             CTR_PREFIX_LEN) + plain
 
-    def chan_confirm_msg(self, message):
-        print("We are allowed to send!")
+    def chan_confirm_msg(self):
+        if not self.allowed_to_send:
+            print("Chan", self.chan_id, "is now allowed to send.")
+
         self.allowed_to_send = True
 
     def make_request_fragments(self, request):
@@ -81,7 +84,7 @@ class ChannelEntry:
         for fragment in make_fragments(request):
             packet = self.encrypt_fragment(fragment)
 
-            ChannelEntry.to_mix.append(
+            self.packets.append(
                 DATA_MSG_FLAG + i2b(self.chan_id, CHAN_ID_SIZE) + packet)
 
         print(self.src_addr, "->", self.chan_id, "len:", len(request), "->",
@@ -160,6 +163,8 @@ class ChannelMid:
         self.last_prev_ctrs = []
         self.last_next_ctrs = []
 
+        self.initialized = False
+
     def forward_request(self, request):
         """Takes a mix fragment, already stripped of the channel id."""
         print(self.in_chan_id, "->", self.out_chan_id, "len:", len(request))
@@ -189,6 +194,7 @@ class ChannelMid:
 
             if not ChannelMid._check_replay_window(self.last_next_ctrs,
                                                    ctr_int):
+                print("Caught replay detection for", self.out_chan_id)
                 return
 
         cipher = ctr_cipher(self.key, self.ctr_own)
@@ -203,10 +209,10 @@ class ChannelMid:
     @staticmethod
     def _check_replay_window(ctr_list, ctr):
         if ctr in ctr_list:
-            print("Already seen ctr value", ctr)
+            raise Exception("Already seen ctr value", ctr)
             return False
         elif ctr < ctr_list[0]:
-            print("Ctr value", ctr, "too small")
+            raise Exception("Ctr value", ctr, "too small")
             return False
 
         ctr_list.append(ctr)
@@ -221,35 +227,38 @@ class ChannelMid:
         """Takes an already decrypted channel init message and reads the key.
         """
         key_pos = 0
-        ctr1_pos = 16
-        ctr2_pos = 24
-        payload_pos = SYM_KEY_LEN + 2 * CTR_PREFIX_LEN
+        ctr1_pos = SYM_KEY_LEN
+        ctr2_pos = ctr1_pos + CTR_PREFIX_LEN
+        payload_pos = ctr2_pos + CTR_PREFIX_LEN
 
-        self.key = channel_init[key_pos:SYM_KEY_LEN]
+        if not self.initialized:
+            self.key = channel_init[key_pos:SYM_KEY_LEN]
 
-        self.ctr_own = b2i(channel_init[ctr1_pos:ctr1_pos + CTR_PREFIX_LEN])
-        self.ctr_next = b2i(channel_init[ctr2_pos:ctr2_pos + CTR_PREFIX_LEN])
+            self.ctr_own = b2i(channel_init[ctr1_pos:ctr1_pos + CTR_PREFIX_LEN])
+            self.ctr_next = b2i(channel_init[ctr2_pos:ctr2_pos + CTR_PREFIX_LEN])
 
-        # populate the replay window with the initial counters
-        # those will be replaced step by step
-        self.last_prev_ctrs = [self.ctr_own] * REPLAY_WINDOW_SIZE
-        self.last_next_ctrs = [self.ctr_next] * REPLAY_WINDOW_SIZE
+            # populate the replay window with the initial counters
+            # those will be replaced step by step
+            self.last_prev_ctrs = [self.ctr_own] * REPLAY_WINDOW_SIZE
+            self.last_next_ctrs = [self.ctr_next] * REPLAY_WINDOW_SIZE
 
-        # we increment the counter value, so we don't collide with the replay
-        # detection on other mixes
-        self.ctr_own += 1
+            # we increment the counter value, so we don't collide with the replay
+            # detection on other mixes
+            self.ctr_own += 1
 
-        cipher_text = channel_init[payload_pos:] + \
-            get_random_bytes(payload_pos)
+            self.initialized = True
+
+        cipher_text = channel_init[payload_pos:] + get_random_bytes(payload_pos)
 
         print(self.in_chan_id, "->", self.out_chan_id, "len:", len(cipher_text))
-        print("Own ctr", self.ctr_own, "Next ctr", self.ctr_next)
 
+        # todo: this needs to be split for resending without reconfiguring
         # we add an empty ctr prefix, because the link encryption expects there
         # to be one, even though the channel init wasn't sym encrypted
-        ChannelMid.requests.append(CHAN_INIT_MSG_FLAG + i2b(self.out_chan_id, CHAN_ID_SIZE) +
-                                   get_random_bytes(
-                                       CTR_PREFIX_LEN) + cipher_text)
+        packet = CHAN_INIT_MSG_FLAG + i2b(self.out_chan_id, CHAN_ID_SIZE) + \
+                 get_random_bytes(CTR_PREFIX_LEN) + cipher_text
+
+        ChannelMid.requests.append(packet)
 
     @staticmethod
     def random_channel():

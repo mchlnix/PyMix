@@ -64,7 +64,7 @@ class EntryPoint:
         channel = ChannelEntry.table[chan_id]
 
         if msg_type == CHAN_CONFIRM_MSG_FLAG:
-            channel.chan_confirm_msg(fragment)
+            channel.chan_confirm_msg()
         else:
             channel.recv_response_fragment(msg_ctr + fragment)
 
@@ -87,9 +87,7 @@ class EntryPoint:
             channel = ChannelEntry(src_addr, dest_addr, 3)
             self.ips2id[(src_addr, dest_addr)] = channel.chan_id
 
-            init_msg = channel.chan_init_msg(self.mix_ciphers)
-
-            ChannelEntry.to_mix.append(init_msg)  # TODO better way
+            channel.chan_init_msg(self.mix_ciphers)
         else:
             channel = ChannelEntry.table[self.ips2id[src_addr, dest_addr]]
 
@@ -114,12 +112,18 @@ class EntryPoint:
                 self.handle_request(data, addr)
 
             # send to mix
-            for packet in ChannelEntry.to_mix:
-                cipher = link_encrypt(bytes(SYM_KEY_LEN), packet)
+            for channel in ChannelEntry.table.values():
+                if channel.allowed_to_send:
+                    for packet in channel.packets:
+                        cipher = link_encrypt(bytes(SYM_KEY_LEN), packet)
 
-                self.socket.sendto(cipher, mix_addr)
+                        self.socket.sendto(cipher, mix_addr)
 
-            ChannelEntry.to_mix.clear()
+                    channel.packets.clear()
+                else:
+                    cipher = link_encrypt(bytes(SYM_KEY_LEN), channel.init_msg)
+
+                    self.socket.sendto(cipher, mix_addr)
 
 
 if __name__ == "__main__":

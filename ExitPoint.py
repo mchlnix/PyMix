@@ -10,7 +10,7 @@ from socket import socket, AF_INET, SOCK_DGRAM as UDP
 
 from UDPChannel import ChannelExit
 from constants import UDP_MTU, CHAN_ID_SIZE, SYM_KEY_LEN, CTR_PREFIX_LEN, \
-    DATA_MSG_FLAG, CHAN_INIT_MSG_FLAG, FLAG_LEN
+    CHAN_INIT_MSG_FLAG, FLAG_LEN
 from util import parse_ip_port, cut, link_decrypt, link_encrypt
 
 
@@ -52,28 +52,30 @@ class ExitPoint:
                         bytes(SYM_KEY_LEN), packet)
 
                     # new channel detected
-                    if chan_id not in ChannelExit.table.keys():
+                    if msg_type == CHAN_INIT_MSG_FLAG:
                         # automatically puts it into the channel table
                         # of ChannelExit
-                        if msg_type == DATA_MSG_FLAG:
+                        if chan_id in ChannelExit.table.keys():
                             print(
-                                "Received Data Msg before Channel was established.")
+                                "Received Channel init message for established Channel",
+                                chan_id)
+
+                            channel = ChannelExit.table[chan_id]
                         else:
-                            new_channel = ChannelExit(chan_id)
+                            channel = ChannelExit(chan_id)
 
                             # first message of a channel is channel init
-                            new_channel.parse_channel_init(fragment)
+                            channel.parse_channel_init(fragment)
 
-                            new_channel.send_chan_confirm()
+                        channel.send_chan_confirm()
                     else:
-                        # request from an already established channel
+                        # data msg
 
-                        if msg_type == CHAN_INIT_MSG_FLAG:
-                            raise Exception(
-                                "Received Channel init message for established Channel.")
-
-                        ChannelExit.table[chan_id].recv_request(
-                            msg_ctr + fragment)
+                        if chan_id not in ChannelExit.table.keys():
+                            raise Exception("Received Data Msg before Channel was established", chan_id)
+                        else:
+                            ChannelExit.table[chan_id].recv_request(
+                                msg_ctr + fragment)
 
                 # send responses to mix
                 for packet in ChannelExit.to_mix:

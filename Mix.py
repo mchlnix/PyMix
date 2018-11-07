@@ -3,14 +3,14 @@
 from argparse import ArgumentParser
 from socket import socket, AF_INET, SOCK_DGRAM as UDP
 
+from Crypto.Random.random import StrongRandom
+
 from Crypto.Cipher import PKCS1_OAEP
 from Crypto.PublicKey import RSA
 from Crypto.Random import get_random_bytes
-from Crypto.Random.random import StrongRandom
-
 from UDPChannel import ChannelMid
 from constants import UDP_MTU, ASYM_OUTPUT_LEN, ASYM_PADDING_LEN, \
-    SYM_KEY_LEN, DATA_MSG_FLAG, CHAN_INIT_MSG_FLAG
+    SYM_KEY_LEN, DATA_MSG_FLAG
 from util import read_cfg_values, link_decrypt, link_encrypt
 
 STORE_LIMIT = 1
@@ -51,20 +51,17 @@ class Mix:
             bytes(SYM_KEY_LEN), packet)
 
         # connect incoming chan id with address of the packet
-        if in_id in ChannelMid.table_in.keys():
+        if msg_type == DATA_MSG_FLAG:
             # existing channel
 
-            if msg_type == CHAN_INIT_MSG_FLAG:
-                print("Got channel init for existing channel.")
+            if in_id not in ChannelMid.table_in.keys():
+                raise Exception("Got data msg for uninitalized channel", in_id)
 
             channel = ChannelMid.table_in[in_id]
             channel.forward_request(msg_ctr + fragment)
         else:
             # new channel
             # Decrypt only the first block asymmetrically
-
-            if msg_type == DATA_MSG_FLAG:
-                print("Got data msg for uninitalized channel.")
 
             try:
                 asym_plain = self.cipher.decrypt(fragment[0:ASYM_OUTPUT_LEN])
@@ -75,7 +72,12 @@ class Mix:
                 plain = asym_plain + fragment[ASYM_OUTPUT_LEN:] + \
                     get_random_bytes(ASYM_PADDING_LEN)
 
-                channel = ChannelMid(in_id)
+                if in_id in ChannelMid.table_in.keys():
+                    print("Got another channel initialization msg for", in_id)
+                    channel = ChannelMid.table_in[in_id]
+                else:
+                    channel = ChannelMid(in_id)
+
                 channel.parse_channel_init(plain)
             except ValueError:
                 print("Channel Init decryption failed. Probably gotten a "
@@ -90,8 +92,6 @@ class Mix:
         # packet had, then get the src ip for that channel id
         out_id, msg_ctr, fragment, msg_type = link_decrypt(
             bytes(SYM_KEY_LEN), response)
-
-        print(out_id, len(msg_ctr), len(fragment), len(msg_type))
 
         channel = ChannelMid.table_out[out_id]
 
