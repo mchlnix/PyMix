@@ -2,15 +2,22 @@ from random import randint
 from selectors import DefaultSelector, EVENT_READ
 from socket import socket, AF_INET, SOCK_DGRAM as UDP
 
-from Crypto.Random import get_random_bytes
+from sphinxmix.SphinxClient import Nenc, create_forward_message, pack_message, PFdecode, unpack_message, Relay_flag, \
+    receive_forward, Dest_flag
+from sphinxmix.SphinxNode import sphinx_process
+from sphinxmix.SphinxParams import SphinxParams
 
+from Crypto.Random import get_random_bytes
 from MixMessage import FRAG_SIZE, MixMessageStore, make_fragments
 from constants import CHAN_ID_SIZE, MIN_PORT, MAX_PORT, UDP_MTU, \
-    REPLAY_WINDOW_SIZE, ASYM_INPUT_LEN, SYM_KEY_LEN, CTR_PREFIX_LEN, \
+    CTR_PREFIX_LEN, \
     CTR_MODE_PADDING, IPV4_LEN, PORT_LEN, CHAN_INIT_MSG_FLAG, DATA_MSG_FLAG, \
-    CHAN_CONFIRM_MSG_FLAG, FLAG_LEN
+    CHAN_CONFIRM_MSG_FLAG, FLAG_LEN, REPLAY_WINDOW_SIZE
 from util import i2b, b2i, padded, random_channel_id, cut, b2ip, ip2b, \
     gen_ctr_prefix, gen_sym_key, ctr_cipher
+
+params = SphinxParams(body_len=50)
+params_dict = {(params.max_len, params.m): params}
 
 
 class ChannelEntry:
@@ -41,37 +48,37 @@ class ChannelEntry:
         self.allowed_to_send = False
         self.init_msg = None
 
-    def chan_init_msg(self, mix_ciphers):
+    def chan_init_msg(self, pub_comps):
         """The bytes in keys are assumed to be the resident keys of the mixes
         in reverse order of delivery (last mix first). The keys might be
         asymmetric keys in the future. These will be used to encrypt the
         channel init message and the channel keys that the client decided on.
         """
-        # Key 1
-        #   Key 2
-        #     Key 3
-        #     Destination Address
+        # the node identifiers are not needed, since this is a mix cascade, not a network
+        unused_addresses = [0, 1, 2]
+
+        # the first address and key is never used, since we send it to the first mix directly
+        # the last mix has to get the key from the payload
+        keys = [bytes(16)] + self.keys[:2]
 
         ip, port = self.dest_addr
 
-        # the plain text bytes, that also fit into the asym block
-        cut_off = ASYM_INPUT_LEN - SYM_KEY_LEN - 2 * CTR_PREFIX_LEN
+        destination = (ip2b(ip) + i2b(port, PORT_LEN), self.keys[-1])
 
-        plain = padded(ip2b(ip) + i2b(port, PORT_LEN), cut_off)
+        routing_info = [Nenc((address, key)) for key, address in zip(keys, unused_addresses)]
 
-        # add 0 at the end, since the last mix doesn't need to check ctr values
-        for cipher, key, ctr_start, ctr_check in zip(mix_ciphers,
-                                                     reversed(self.keys),
-                                                     self.counters,
-                                                     [0] + self.counters[0:-1]):
-            plain = cipher.encrypt(key + i2b(ctr_start, CTR_PREFIX_LEN) +
-                                   i2b(ctr_check, CTR_PREFIX_LEN) +
-                                   plain[0:cut_off]) + plain[cut_off:]
+        payload = b""
+
+        header, delta = create_forward_message(params, routing_info, pub_comps, destination, payload)
+
+        print("Len Header:", len(header), "Len Delta:", len(delta))
 
         # we add a random ctr prefix, because the link encryption expects there
         # to be one, even though the channel init wasn't sym encrypted
         self.init_msg = CHAN_INIT_MSG_FLAG + i2b(self.chan_id, CHAN_ID_SIZE) + get_random_bytes(
-            CTR_PREFIX_LEN) + plain
+            CTR_PREFIX_LEN) + pack_message(params, (header, delta))
+
+        print("Len init:", len(self.init_msg), len(pack_message(params, (header, delta))))
 
     def chan_confirm_msg(self):
         if not self.allowed_to_send:
@@ -210,10 +217,8 @@ class ChannelMid:
     def _check_replay_window(ctr_list, ctr):
         if ctr in ctr_list:
             raise Exception("Already seen ctr value", ctr)
-            return False
         elif ctr < ctr_list[0]:
             raise Exception("Ctr value", ctr, "too small")
-            return False
 
         ctr_list.append(ctr)
 
@@ -223,32 +228,37 @@ class ChannelMid:
 
         return True
 
-    def parse_channel_init(self, channel_init):
+    def parse_channel_init(self, channel_init, priv_comp):
         """Takes an already decrypted channel init message and reads the key.
         """
-        key_pos = 0
-        ctr1_pos = SYM_KEY_LEN
-        ctr2_pos = ctr1_pos + CTR_PREFIX_LEN
-        payload_pos = ctr2_pos + CTR_PREFIX_LEN
+        px, (header, delta) = unpack_message(params_dict, channel_init)
 
-        if not self.initialized:
-            self.key = channel_init[key_pos:SYM_KEY_LEN]
+        ret = sphinx_process(params, priv_comp, header, delta)
+        (tag, info, (header, delta), mac_key) = ret
 
-            self.ctr_own = b2i(channel_init[ctr1_pos:ctr1_pos + CTR_PREFIX_LEN])
-            self.ctr_next = b2i(channel_init[ctr2_pos:ctr2_pos + CTR_PREFIX_LEN])
+        routing = PFdecode(params, info)
 
-            # populate the replay window with the initial counters
-            # those will be replaced step by step
-            self.last_prev_ctrs = [self.ctr_own] * REPLAY_WINDOW_SIZE
-            self.last_next_ctrs = [self.ctr_next] * REPLAY_WINDOW_SIZE
+        if routing[0] == Relay_flag:
+            flag, (unused_address, sym_key) = routing
+            print("Address:", unused_address, sym_key)
+            cipher_text = pack_message(params, (header, delta))
+        elif routing[0] == Dest_flag:
+            (dest, sym_key), msg = receive_forward(params, mac_key, delta)
+            print(b2ip(dest[0:4]), b2i(dest[4:]), sym_key, msg)
+            cipher_text = dest
+        else:
+            raise Exception()
 
-            # we increment the counter value, so we don't collide with the replay
-            # detection on other mixes
-            self.ctr_own += 1
-
+        if self.key is not None:
+            assert self.key == sym_key
             self.initialized = True
+        else:
+            self.key = sym_key
 
-        cipher_text = channel_init[payload_pos:] + get_random_bytes(payload_pos)
+        self.ctr_own = 0
+        self.ctr_next = 0
+        self.last_prev_ctrs = [self.ctr_own] * REPLAY_WINDOW_SIZE
+        self.last_next_ctrs = [self.ctr_next] * REPLAY_WINDOW_SIZE
 
         print(self.in_chan_id, "->", self.out_chan_id, "len:", len(cipher_text))
 

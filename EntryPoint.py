@@ -4,8 +4,8 @@ converting them into mix messages before sending."""
 from argparse import ArgumentParser
 from socket import socket, AF_INET, SOCK_DGRAM as UDP
 
-from Crypto.Cipher import PKCS1_OAEP
-from Crypto.PublicKey import RSA
+from petlib.bn import Bn
+from sphinxmix.SphinxParams import SphinxParams
 
 from MixMessage import MixMessageStore
 from UDPChannel import ChannelEntry
@@ -18,6 +18,8 @@ UDP_MTU = 65535
 OWN_ADDR_ARG = "own_ip:port"
 MIX_ADDR_ARG = "mix_ip:port"
 KEYFILE_ARG = "keyfile"
+
+params = SphinxParams(body_len=50)
 
 
 class EntryPoint:
@@ -42,17 +44,20 @@ class EntryPoint:
         self.ips2id = dict()
 
         # list of the asymmetric mix ciphers to encrypt channel init messages
-        self.mix_ciphers = []
+        self.pub_comps = []
 
         # the socket we listen for packet on
         self.socket = None
 
-    def set_keys(self, public_keys):
+    def set_keys(self, secrets):
         """Initializes a cipher for en- and decrypting using the given keys."""
-        for public_key in public_keys:
-            self.mix_ciphers.append(PKCS1_OAEP.new(public_key))
+        # don't generate public components, share them in the first place TODO
 
-        self.mix_ciphers.reverse()
+        for secret in secrets:
+            bn = Bn.from_decimal(secret)
+            print(secret, bn)
+            print(type(bn))
+            self.pub_comps.append(params.group.expon(params.group.g, [Bn.from_decimal(secret)]))
 
     def handle_mix_fragment(self, response):
         """Takes a mix fragment and the channel id it came from. This
@@ -87,7 +92,7 @@ class EntryPoint:
             channel = ChannelEntry(src_addr, dest_addr, 3)
             self.ips2id[(src_addr, dest_addr)] = channel.chan_id
 
-            channel.chan_init_msg(self.mix_ciphers)
+            channel.chan_init_msg(self.pub_comps)
         else:
             channel = ChannelEntry.table[self.ips2id[src_addr, dest_addr]]
 
@@ -147,13 +152,13 @@ if __name__ == "__main__":
     entry_point = EntryPoint(own_addr, mix_addr)
 
     # prepare the keys
-    pub_keys = []
+    secrets = []
 
     for keyfile in mix_keys:
-        with open("config/keys/" + keyfile + ".pem", "rb") as f:
-            pub_keys.append(RSA.importKey(f.read()))
+        _, _, _, _, secret = read_cfg_values("config/" + keyfile + ".cfg")
+        secrets.append(secret)
 
     # init the ciphers
-    entry_point.set_keys(pub_keys)
+    entry_point.set_keys(secrets)
 
     entry_point.run()

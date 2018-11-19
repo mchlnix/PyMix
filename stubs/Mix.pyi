@@ -1,12 +1,14 @@
 from socket import socket
+from typing import Any
 
-from Crypto.Cipher.PKCS1_OAEP import PKCS1OAEP_Cipher
 from Types import AddressTuple
+from petlib.bn import Bn
 
 STORE_LIMIT: int
 
 class Mix:
-    cipher: PKCS1OAEP_Cipher
+    priv_comp: Bn
+    pub_comp: Any
     incoming: socket
     next_addr: AddressTuple
     mix_addr: AddressTuple

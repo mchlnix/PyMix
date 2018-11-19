@@ -4,27 +4,26 @@ from argparse import ArgumentParser
 from socket import socket, AF_INET, SOCK_DGRAM as UDP
 
 from Crypto.Random.random import StrongRandom
+from petlib.bn import Bn
+from sphinxmix.SphinxParams import SphinxParams
 
-from Crypto.Cipher import PKCS1_OAEP
-from Crypto.PublicKey import RSA
-from Crypto.Random import get_random_bytes
 from UDPChannel import ChannelMid
-from constants import UDP_MTU, ASYM_OUTPUT_LEN, ASYM_PADDING_LEN, \
-    SYM_KEY_LEN, DATA_MSG_FLAG
+from constants import UDP_MTU, SYM_KEY_LEN, DATA_MSG_FLAG
 from util import read_cfg_values, link_decrypt, link_encrypt
 
 STORE_LIMIT = 1
 
+params = SphinxParams(body_len=50)
+params_dict = {(params.max_len, params.m): params}
+
 
 class Mix:
-    def __init__(self, keyfile, own_addr, next_addr):
+    def __init__(self, secret, own_addr, next_addr):
         # set up crypto
         # decrypt for messages from a client
         # encrypt for responses to the client
-        with open("config/keys/" + keyfile + ".pem", "rb") as f:
-            priv_key = RSA.import_key(f.read())
-
-        self.cipher = PKCS1_OAEP.new(priv_key)
+        self.priv_comp = secret
+        self.pub_comp = params.group.expon(params.group.g, [self.priv_comp])
 
         # create sockets
         # the 'port' arg is which one to listen and send datagrams from
@@ -64,24 +63,17 @@ class Mix:
             # Decrypt only the first block asymmetrically
 
             try:
-                asym_plain = self.cipher.decrypt(fragment[0:ASYM_OUTPUT_LEN])
-
-                # prepend back to the rest of the cipher text
-                # TODO use pad() after setting the frag size constant with the
-                # ctrs
-                plain = asym_plain + fragment[ASYM_OUTPUT_LEN:] + \
-                    get_random_bytes(ASYM_PADDING_LEN)
-
                 if in_id in ChannelMid.table_in.keys():
                     print("Got another channel initialization msg for", in_id)
                     channel = ChannelMid.table_in[in_id]
                 else:
                     channel = ChannelMid(in_id)
 
-                channel.parse_channel_init(plain)
-            except ValueError:
+                channel.parse_channel_init(fragment, self.priv_comp)
+            except ValueError as ve:
                 print("Channel Init decryption failed. Probably gotten a "
                       "message for that channel too early. Dropping packet.")
+                raise ve
 
     def handle_response(self, response):
         """Handles a message, that came as a response to an initially made
@@ -122,6 +114,7 @@ class Mix:
 
                     enc_packet = link_encrypt(bytes(SYM_KEY_LEN), packet)
 
+                    print("Sending")
                     self.incoming.sendto(enc_packet, self.next_addr)
 
             # send out responses
@@ -147,13 +140,15 @@ if __name__ == "__main__":
 
     # get configurations
 
-    listen_ip, listen_port, next_ip, next_port, key_file = \
+    listen_ip, listen_port, next_ip, next_port, secret = \
         read_cfg_values(args.config)
+
+    secret = Bn.from_decimal(secret)
 
     listen_addr = (listen_ip, int(listen_port))
 
     next_hop_addr = (next_ip, int(next_port))
 
-    mix = Mix(key_file, listen_addr, next_hop_addr)
+    mix = Mix(secret, listen_addr, next_hop_addr)
 
     mix.run()
