@@ -3,6 +3,7 @@ from socket import socket
 from typing import List, Dict, ClassVar
 
 from petlib.bn import Bn
+from petlib.ec import EcPt
 
 from MixMessage import MixMessage, MixMessageStore
 from Types import AddressTuple
@@ -15,6 +16,7 @@ class ChannelEntry:
 
     src_addr: AddressTuple
     dest_addr: AddressTuple
+    pub_comps: List[EcPt]
     chan_id: int
     keys: List[bytes]
     counters: List[int]
@@ -22,8 +24,8 @@ class ChannelEntry:
     mix_msg_store: MixMessageStore
     allowed_to_send: bool
 
-    def __init__(self, src_addr: AddressTuple, dest_addr: AddressTuple, mix_count: int) -> None: ...
-    def chan_init_msg(self, pub_comps: List[Bn]) -> bytes: ...
+    def __init__(self, src_addr: AddressTuple, dest_addr: AddressTuple, pub_comps: List[EcPt], mix_count: int) -> None: ...
+    def chan_init_msg(self) -> bytes: ...
     def chan_confirm_msg(self) -> None: ...
     def make_request_fragments(self, request: bytes) -> None: ...
     def recv_response_fragment(self, response: bytes) -> None: ...

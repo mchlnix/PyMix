@@ -86,10 +86,8 @@ class EntryPoint:
 
         if (src_addr, dest_addr) not in self.ips2id:
             # new channel needs to be opened
-            channel = ChannelEntry(src_addr, dest_addr, 3)
+            channel = ChannelEntry(src_addr, dest_addr, self.pub_comps, 3)
             self.ips2id[(src_addr, dest_addr)] = channel.chan_id
-
-            channel.chan_init_msg(self.pub_comps)
         else:
             channel = ChannelEntry.table[self.ips2id[src_addr, dest_addr]]
 
@@ -123,7 +121,7 @@ class EntryPoint:
 
                     channel.packets.clear()
                 else:
-                    cipher = link_encrypt(bytes(SYM_KEY_LEN), channel.init_msg)
+                    cipher = link_encrypt(bytes(SYM_KEY_LEN), channel.chan_init_msg())
 
                     self.socket.sendto(cipher, mix_addr)
 
