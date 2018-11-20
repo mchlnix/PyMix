@@ -180,14 +180,15 @@ class ChannelMid:
 
         cipher = ctr_cipher(self.key, ctr)
 
-        ChannelMid.requests.append(DATA_MSG_FLAG + i2b(self.out_chan_id, CHAN_ID_SIZE) +
-                                   cipher.decrypt(cipher_text) + get_random_bytes(CTR_MODE_PADDING))
+        forward_msg = cipher.decrypt(cipher_text) + get_random_bytes(CTR_MODE_PADDING)
+
+        print("data", self.in_chan_id, "->", self.out_chan_id, "len:", len(forward_msg))
+
+        ChannelMid.requests.append(DATA_MSG_FLAG + i2b(self.out_chan_id, CHAN_ID_SIZE) + forward_msg)
 
     def forward_response(self, response):
-        print(self.in_chan_id, "<-", self.out_chan_id, "len:", len(response))
-
         # cut the padding off
-        # payload, _ = cut(response, -CTR_MODE_PADDING)
+        response, _ = cut(response, -CTR_MODE_PADDING)
 
         msg_type, response = cut(response, FLAG_LEN)
 
@@ -202,8 +203,10 @@ class ChannelMid:
 
         cipher = ctr_cipher(self.key, self.ctr_own)
 
+        forward_msg = cipher.encrypt(response)
+
         response = msg_type + i2b(self.in_chan_id, CHAN_ID_SIZE) + i2b(
-            self.ctr_own, CTR_PREFIX_LEN) + cipher.encrypt(response)
+            self.ctr_own, CTR_PREFIX_LEN) + forward_msg
 
         self.ctr_own += 1
 
@@ -262,8 +265,7 @@ class ChannelMid:
 
         # we add an empty ctr prefix, because the link encryption expects there
         # to be one, even though the channel init wasn't sym encrypted
-        packet = CHAN_INIT_MSG_FLAG + i2b(self.out_chan_id, CHAN_ID_SIZE) + \
-                 get_random_bytes(CTR_PREFIX_LEN) + cipher_text
+        packet = CHAN_INIT_MSG_FLAG + i2b(self.out_chan_id, CHAN_ID_SIZE) + get_random_bytes(CTR_PREFIX_LEN) + padded(cipher_text, PACKET_SIZE)
 
         ChannelMid.requests.append(packet)
 
@@ -327,7 +329,7 @@ class ChannelExit:
         mix_frags = make_fragments(data)
 
         for frag in mix_frags:
-            packet = padded(frag, FRAG_SIZE)  # + self.padding)
+            packet = padded(frag, PACKET_SIZE)
 
             print("data", self.in_chan_id, "<-", self.dest_addr, "len:", len(packet))
 
@@ -357,7 +359,7 @@ class ChannelExit:
     def send_chan_confirm(self):
         print("init", self.in_chan_id, "<-", self.dest_addr, "len:", PACKET_SIZE)
         ChannelExit.to_mix.append(CHAN_CONFIRM_MSG_FLAG + i2b(self.in_chan_id, CHAN_ID_SIZE) +
-                                  get_random_bytes(FRAG_SIZE))
+                                  get_random_bytes(PACKET_SIZE))
 
     @staticmethod
     def random_socket():
