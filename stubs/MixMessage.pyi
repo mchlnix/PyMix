@@ -1,5 +1,6 @@
 from typing import List, Tuple, Dict
 
+PACKET_SIZE: int
 FRAG_SIZE: int
 ID_SIZE: int
 FRAG_COUNT_SIZE: int

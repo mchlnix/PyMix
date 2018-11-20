@@ -1,6 +1,6 @@
 from random import randint
 
-from constants import CTR_PREFIX_LEN, SYM_KEY_LEN, ASYM_PADDING_LEN
+from constants import CTR_PREFIX_LEN
 from util import b2i, i2b
 from util import padded, partitions as fragments, partitioned as fragmented
 
@@ -13,7 +13,7 @@ from util import padded, partitions as fragments, partitioned as fragmented
 # Number of fragments           1 Byte  #
 # Number of this fragment       1 Byte  #
 # Number of padding bytes       2 Bytes #
-# Payload           306 - n*8 - 8 Bytes #
+# Payload                     160 Bytes #
 #########################################
 
 # typical amount of mixes in the mix chain is 3
@@ -21,11 +21,10 @@ from util import padded, partitions as fragments, partitioned as fragmented
 MIX_COUNT = 3
 
 # channel init msg size
-PACKET_SIZE = 256 + (MIX_COUNT - 1) * (ASYM_PADDING_LEN +
-                                       SYM_KEY_LEN + 2 * CTR_PREFIX_LEN)
+PACKET_SIZE = 192  # taken from the sphinx channel init
 
 # one ctr prefix is in the header
-FRAG_SIZE = PACKET_SIZE - (MIX_COUNT - 1) * CTR_PREFIX_LEN
+FRAG_SIZE = PACKET_SIZE - MIX_COUNT * CTR_PREFIX_LEN
 
 ID_SIZE = 4
 
