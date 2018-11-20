@@ -1,3 +1,5 @@
+from sphinxmix.SphinxParams import SphinxParams
+
 UDP_MTU = 65535
 
 CHAN_ID_SIZE = 2
@@ -35,3 +37,7 @@ FLAG_LEN = 1
 DATA_MSG_FLAG = int.to_bytes(1, 1, "big")
 CHAN_INIT_MSG_FLAG = int.to_bytes(2, 1, "big")
 CHAN_CONFIRM_MSG_FLAG = int.to_bytes(3, 1, "big")
+
+# body_len cannot be less than twice the secret size k, because of the definition of beta in the paper
+
+SPHINX_PARAMS = SphinxParams(header_len=115, body_len=44)

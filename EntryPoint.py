@@ -5,11 +5,10 @@ from argparse import ArgumentParser
 from socket import socket, AF_INET, SOCK_DGRAM as UDP
 
 from petlib.bn import Bn
-from sphinxmix.SphinxParams import SphinxParams
 
 from MixMessage import MixMessageStore
 from UDPChannel import ChannelEntry
-from constants import IPV4_LEN, PORT_LEN, SYM_KEY_LEN, CHAN_CONFIRM_MSG_FLAG
+from constants import IPV4_LEN, PORT_LEN, SYM_KEY_LEN, CHAN_CONFIRM_MSG_FLAG, SPHINX_PARAMS
 from util import b2i, read_cfg_values, cut, b2ip, link_encrypt, parse_ip_port, \
     link_decrypt
 
@@ -19,7 +18,7 @@ OWN_ADDR_ARG = "own_ip:port"
 MIX_ADDR_ARG = "mix_ip:port"
 KEYFILE_ARG = "keyfile"
 
-params = SphinxParams(body_len=50)
+params = SPHINX_PARAMS
 
 
 class EntryPoint:
@@ -54,9 +53,6 @@ class EntryPoint:
         # don't generate public components, share them in the first place TODO
 
         for secret in secrets:
-            bn = Bn.from_decimal(secret)
-            print(secret, bn)
-            print(type(bn))
             self.pub_comps.append(params.group.expon(params.group.g, [Bn.from_decimal(secret)]))
 
     def handle_mix_fragment(self, response):

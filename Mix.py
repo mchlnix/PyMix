@@ -5,15 +5,14 @@ from socket import socket, AF_INET, SOCK_DGRAM as UDP
 
 from Crypto.Random.random import StrongRandom
 from petlib.bn import Bn
-from sphinxmix.SphinxParams import SphinxParams
 
 from UDPChannel import ChannelMid
-from constants import UDP_MTU, SYM_KEY_LEN, DATA_MSG_FLAG
+from constants import UDP_MTU, SYM_KEY_LEN, DATA_MSG_FLAG, SPHINX_PARAMS
 from util import read_cfg_values, link_decrypt, link_encrypt
 
 STORE_LIMIT = 1
 
-params = SphinxParams(body_len=50)
+params = SPHINX_PARAMS
 params_dict = {(params.max_len, params.m): params}
 
 
@@ -24,6 +23,8 @@ class Mix:
         # encrypt for responses to the client
         self.priv_comp = secret
         self.pub_comp = params.group.expon(params.group.g, [self.priv_comp])
+
+
 
         # create sockets
         # the 'port' arg is which one to listen and send datagrams from
