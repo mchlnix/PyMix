@@ -94,7 +94,6 @@ class ChannelEntry:
               len(packet))
 
     def recv_response_fragment(self, response):
-        print(self.src_addr, "<-", self.chan_id, "len:", len(response))
         fragment = self.decrypt_fragment(response)
 
         # the endpoint adds a ctr prefix of zeroes, which we need to get rid of
@@ -170,8 +169,6 @@ class ChannelMid:
 
     def forward_request(self, request):
         """Takes a mix fragment, already stripped of the channel id."""
-        print(self.in_chan_id, "->", self.out_chan_id, "len:", len(request))
-
         ctr, cipher_text = cut(request, CTR_PREFIX_LEN)
         ctr = b2i(ctr)
 
@@ -206,6 +203,8 @@ class ChannelMid:
             self.ctr_own, CTR_PREFIX_LEN) + cipher.encrypt(response)
 
         self.ctr_own += 1
+
+        print("data", self.in_chan_id, "<-", self.out_chan_id, "len:", len(forward_msg))
 
         ChannelMid.responses.append(response)
 
@@ -256,7 +255,7 @@ class ChannelMid:
         self.last_prev_ctrs = [self.ctr_own] * REPLAY_WINDOW_SIZE
         self.last_next_ctrs = [self.ctr_next] * REPLAY_WINDOW_SIZE
 
-        print(self.in_chan_id, "->", self.out_chan_id, "len:", len(cipher_text))
+        print("init", self.in_chan_id, "->", self.out_chan_id, "len:", len(cipher_text))
 
         # we add an empty ctr prefix, because the link encryption expects there
         # to be one, even though the channel init wasn't sym encrypted
@@ -303,8 +302,6 @@ class ChannelExit:
         will be sent out over their sockets.
         """
 
-        print(self.in_chan_id, "->", self.dest_addr, "len:", len(request))
-
         self.padding = len(request) - FRAG_SIZE
 
         fragment, _ = cut(request, FRAG_SIZE)  # cut off any padding
@@ -313,6 +310,7 @@ class ChannelExit:
 
         # send completed mix messages to the destination immediately
         for mix_message in self.mix_msg_store.completed():
+            print("data", self.in_chan_id, "->", self.dest_addr, "len:", len(mix_message.payload))
             self.out_sock.send(mix_message.payload)
 
         self.mix_msg_store.remove_completed()
@@ -328,7 +326,7 @@ class ChannelExit:
         for frag in mix_frags:
             packet = padded(frag, FRAG_SIZE)  # + self.padding)
 
-            print(self.in_chan_id, "<-", self.dest_addr, "len:", len(packet))
+            print("data", self.in_chan_id, "<-", self.dest_addr, "len:", len(packet))
 
             ChannelExit.to_mix.append(DATA_MSG_FLAG + i2b(self.in_chan_id, CHAN_ID_SIZE) +
                                       packet)
@@ -351,8 +349,10 @@ class ChannelExit:
             return
 
         ChannelExit.sock_sel.register(self.out_sock, EVENT_READ, data=self)
+        print("init", self.in_chan_id, "->", self.dest_addr, "len:", len(channel_init))
 
     def send_chan_confirm(self):
+        print("init", self.in_chan_id, "<-", self.dest_addr, "len:", PACKET_SIZE)
         ChannelExit.to_mix.append(CHAN_CONFIRM_MSG_FLAG + i2b(self.in_chan_id, CHAN_ID_SIZE) +
                                   get_random_bytes(FRAG_SIZE))
 

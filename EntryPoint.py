@@ -72,6 +72,7 @@ class EntryPoint:
         # send received responses to their respective recipients without
         # waiting
         for mix_msg in channel.get_completed_responses():
+            print("data", channel.src_addr, "<-", channel.chan_id, "len:", len(mix_msg.payload))
             self.socket.sendto(mix_msg.payload, channel.src_addr)
 
     def handle_request(self, request, src_addr):
