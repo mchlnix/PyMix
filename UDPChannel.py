@@ -53,24 +53,21 @@ class ChannelEntry:
         asymmetric keys in the future. These will be used to encrypt the
         channel init message and the channel keys that the client decided on.
         """
-        # the node identifiers are not needed, since this is a mix cascade, not a network
-        unused_addresses = [0, 1, 2]
-
-        # the first address and key is never used, since we send it to the first mix directly
+        # since we don't need the addresses, we use them to distribute the keys
+        # the first key is never used, since we send it to the first mix directly
         # the last mix has to get the key from the payload
-        keys = [bytes(16)] + self.keys[:2]
+        keys = [b""] + self.keys[:2]
 
         ip, port = self.dest_addr
 
-        destination = (ip2b(ip) + i2b(port, PORT_LEN), self.keys[-1])
+        # destination of the channel and the sym key for the last mix
+        destination = ip2b(ip) + i2b(port, PORT_LEN) + self.keys[-1]
 
-        routing_info = [Nenc((address, key)) for key, address in zip(keys, unused_addresses)]
+        routing_info = [Nenc(key) for key in keys]
 
         payload = b""
 
         header, delta = create_forward_message(params, routing_info, pub_comps, destination, payload)
-
-        print("Len Header:", len(header), "Len Delta:", len(delta))
 
         # we add a random ctr prefix, because the link encryption expects there
         # to be one, even though the channel init wasn't sym encrypted
@@ -238,12 +235,12 @@ class ChannelMid:
         routing = PFdecode(params, info)
 
         if routing[0] == Relay_flag:
-            flag, (unused_address, sym_key) = routing
-            print("Address:", unused_address, sym_key)
+            flag, sym_key = routing
             cipher_text = pack_message(params, (header, delta))
         elif routing[0] == Dest_flag:
-            (dest, sym_key), msg = receive_forward(params, mac_key, delta)
-            print(b2ip(dest[0:4]), b2i(dest[4:]), sym_key, msg)
+            dest_and_sym_key, msg = receive_forward(params, mac_key, delta)
+
+            dest, sym_key = cut(dest_and_sym_key, IPV4_LEN + PORT_LEN)
             cipher_text = dest
         else:
             raise Exception()
@@ -261,7 +258,6 @@ class ChannelMid:
 
         print(self.in_chan_id, "->", self.out_chan_id, "len:", len(cipher_text))
 
-        # todo: this needs to be split for resending without reconfiguring
         # we add an empty ctr prefix, because the link encryption expects there
         # to be one, even though the channel init wasn't sym encrypted
         packet = CHAN_INIT_MSG_FLAG + i2b(self.out_chan_id, CHAN_ID_SIZE) + \
