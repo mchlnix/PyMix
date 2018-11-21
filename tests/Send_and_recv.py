@@ -39,4 +39,4 @@ if __name__ == "__main__":
     while True:
         data, addr = sock.recvfrom(4096)
 
-        print(addr, data)
+        print(addr, len(data), data)
