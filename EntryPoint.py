@@ -4,7 +4,7 @@ converting them into mix messages before sending."""
 from argparse import ArgumentParser
 from socket import socket, AF_INET, SOCK_DGRAM as UDP
 
-from petlib.bn import Bn
+from petlib.ec import EcPt, EcGroup
 
 from MixMessage import MixMessageStore
 from UDPChannel import ChannelEntry
@@ -48,12 +48,9 @@ class EntryPoint:
         # the socket we listen for packet on
         self.socket = None
 
-    def set_keys(self, secrets):
+    def set_keys(self, public_keys):
         """Initializes a cipher for en- and decrypting using the given keys."""
-        # don't generate public components, share them in the first place TODO
-
-        for secret in secrets:
-            self.pub_comps.append(params.group.expon(params.group.g, [Bn.from_decimal(secret)]))
+        self.pub_comps = public_keys
 
     def handle_mix_fragment(self, response):
         """Takes a mix fragment and the channel id it came from. This
@@ -147,13 +144,15 @@ if __name__ == "__main__":
     entry_point = EntryPoint(own_addr, mix_addr)
 
     # prepare the keys
-    secrets = []
+    public_keys = []
 
-    for keyfile in mix_keys:
-        _, _, _, _, secret = read_cfg_values("config/" + keyfile + ".cfg")
-        secrets.append(secret)
+    group = EcGroup()
+
+    for pub_file in mix_keys:
+        with open("config/" + pub_file, "rb") as f:
+            public_keys.append(EcPt.from_binary(f.read(), group))
 
     # init the ciphers
-    entry_point.set_keys(secrets)
+    entry_point.set_keys(public_keys)
 
     entry_point.run()

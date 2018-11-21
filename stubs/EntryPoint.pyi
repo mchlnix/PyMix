@@ -2,6 +2,7 @@ from typing import List, Dict, Tuple
 
 from Types import AddressTuple
 from petlib.bn import Bn
+from petlib.ec import EcPt
 
 from MixMessage import MixMessage, MixMessageStore
 
@@ -11,7 +12,7 @@ class EntryPoint:
     mix_addr: AddressTuple
     mix_msg_store: MixMessageStore
     ips2id: Dict[Tuple[AddressTuple, AddressTuple], int]
-    pub_comps: List[Bn]
+    pub_comps: List[EcPt]
     socket: socket
 
     def __init__(self, listen_addr: AddressTuple, addr_to_mix: AddressTuple): ...

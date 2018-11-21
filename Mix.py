@@ -141,10 +141,10 @@ if __name__ == "__main__":
 
     # get configurations
 
-    listen_ip, listen_port, next_ip, next_port, secret = \
-        read_cfg_values(args.config)
+    listen_ip, listen_port, next_ip, next_port, secret_file = read_cfg_values(args.config)
 
-    secret = Bn.from_decimal(secret)
+    with open("config/" + secret_file, "rb") as f:
+        secret = Bn.from_binary(f.read())
 
     listen_addr = (listen_ip, int(listen_port))
 
