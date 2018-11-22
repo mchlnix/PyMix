@@ -74,7 +74,7 @@ class ChannelEntry:
 
         # we add a random ctr prefix, because the link encryption expects there
         # to be one, even though the channel init wasn't sym encrypted
-        print("Len init:", len(pack_message(params, (header, delta))))
+        print("Len init:", len(chan_init))
 
         return CHAN_INIT_MSG_FLAG + i2b(self.chan_id, CHAN_ID_SIZE) + get_random_bytes(
             CTR_PREFIX_LEN) + chan_init
