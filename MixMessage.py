@@ -1,6 +1,6 @@
 from random import randint
 
-from constants import CTR_PREFIX_LEN
+from constants import CTR_PREFIX_LEN, SPHINX_INIT_SIZE
 from util import b2i, i2b
 from util import padded, partitions as fragments, partitioned as fragmented
 
@@ -21,7 +21,7 @@ from util import padded, partitions as fragments, partitioned as fragmented
 MIX_COUNT = 3
 
 # channel init msg size
-PACKET_SIZE = 192  # taken from the sphinx channel init
+PACKET_SIZE = SPHINX_INIT_SIZE
 
 # one ctr prefix is in the header
 FRAG_SIZE = PACKET_SIZE - MIX_COUNT * CTR_PREFIX_LEN

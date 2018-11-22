@@ -38,6 +38,11 @@ DATA_MSG_FLAG = int.to_bytes(1, 1, "big")
 CHAN_INIT_MSG_FLAG = int.to_bytes(2, 1, "big")
 CHAN_CONFIRM_MSG_FLAG = int.to_bytes(3, 1, "big")
 
-# body_len cannot be less than twice the secret size k, because of the definition of beta in the paper
+SPHINX_BODY_LEN = 44
+SPHINX_HEADER_LEN = 115
+SPHINX_OVERHEAD = 33
 
-SPHINX_PARAMS = SphinxParams(header_len=115, body_len=44)
+SPHINX_INIT_SIZE = SPHINX_BODY_LEN + SPHINX_HEADER_LEN + SPHINX_OVERHEAD
+
+# body_len cannot be less than twice the secret size k, because of the definition of beta in the paper
+SPHINX_PARAMS = SphinxParams(header_len=SPHINX_HEADER_LEN, body_len=SPHINX_BODY_LEN)
