@@ -25,7 +25,6 @@ class ChannelEntry:
     pub_comps: List[EcPt]
     sym_keys: List[bytes]
 
-    counters: List[int]
     packets: List[bytes]
     mix_msg_store: MixMessageStore
     allowed_to_send: bool

@@ -37,11 +37,9 @@ class ChannelEntry:
         ChannelEntry.table[self.chan_id] = self
 
         self.sym_keys = []
-        self.counters = []
 
         for _ in self.pub_comps:
             self.sym_keys.append(gen_sym_key())
-            self.counters.append(gen_ctr_prefix())
 
         self.packets = []
         self.mix_msg_store = MixMessageStore()
@@ -112,13 +110,12 @@ class ChannelEntry:
         return packets
 
     def encrypt_fragment(self, fragment):
-        self.counters = [ctr + 1 for ctr in self.counters]
+        for key in reversed(self.sym_keys):
+            counter = gen_ctr_prefix()
 
-        for key, ctr_start in zip(reversed(self.sym_keys), self.counters):
-            cipher = ctr_cipher(key, ctr_start)
+            cipher = ctr_cipher(key, counter)
 
-            fragment = i2b(ctr_start, CTR_PREFIX_LEN) + \
-                cipher.encrypt(fragment)
+            fragment = i2b(counter, CTR_PREFIX_LEN) + cipher.encrypt(fragment)
 
         return fragment
 
