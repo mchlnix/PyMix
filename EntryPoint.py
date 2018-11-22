@@ -83,7 +83,7 @@ class EntryPoint:
 
         if (src_addr, dest_addr) not in self.ips2id:
             # new channel needs to be opened
-            channel = ChannelEntry(src_addr, dest_addr, self.pub_comps, 3)
+            channel = ChannelEntry(src_addr, dest_addr, self.pub_comps)
             self.ips2id[(src_addr, dest_addr)] = channel.chan_id
         else:
             channel = ChannelEntry.table[self.ips2id[src_addr, dest_addr]]

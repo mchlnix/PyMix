@@ -25,7 +25,7 @@ class ChannelEntry:
     to_client = []
     table = dict()
 
-    def __init__(self, src_addr, dest_addr, pub_comps, mix_count=3):
+    def __init__(self, src_addr, dest_addr, pub_comps):
         self.src_addr = src_addr
         self.dest_addr = dest_addr
         self.chan_id = ChannelEntry.random_channel()
@@ -36,11 +36,11 @@ class ChannelEntry:
 
         ChannelEntry.table[self.chan_id] = self
 
-        self.keys = []
+        self.sym_keys = []
         self.counters = []
 
-        for _ in range(mix_count):
-            self.keys.append(gen_sym_key())
+        for _ in self.pub_comps:
+            self.sym_keys.append(gen_sym_key())
             self.counters.append(gen_ctr_prefix())
 
         self.packets = []
@@ -57,12 +57,12 @@ class ChannelEntry:
         # since we don't need the addresses, we use them to distribute the keys
         # the first key is never used, since we send it to the first mix directly
         # the last mix has to get the key from the payload
-        keys = [b""] + self.keys[:2]
+        keys = [b""] + self.sym_keys[:-1]
 
         ip, port = self.dest_addr
 
         # destination of the channel and the sym key for the last mix
-        destination = ip2b(ip) + i2b(port, PORT_LEN) + self.keys[-1]
+        destination = ip2b(ip) + i2b(port, PORT_LEN) + self.sym_keys[-1]
 
         routing_info = [Nenc(key) for key in keys]
 
@@ -114,7 +114,7 @@ class ChannelEntry:
     def encrypt_fragment(self, fragment):
         self.counters = [ctr + 1 for ctr in self.counters]
 
-        for key, ctr_start in zip(reversed(self.keys), self.counters):
+        for key, ctr_start in zip(reversed(self.sym_keys), self.counters):
             cipher = ctr_cipher(key, ctr_start)
 
             fragment = i2b(ctr_start, CTR_PREFIX_LEN) + \
@@ -123,7 +123,7 @@ class ChannelEntry:
         return fragment
 
     def decrypt_fragment(self, fragment):
-        for key in self.keys:
+        for key in self.sym_keys:
             ctr, cipher_text = cut(fragment, CTR_PREFIX_LEN)
 
             cipher = ctr_cipher(key, b2i(ctr))
@@ -294,7 +294,6 @@ class ChannelExit:
         print("New ChannelExit for:", in_chan_id)
 
         self.dest_addr = None
-        self.padding = 0
 
         self.mix_msg_store = MixMessageStore()
         ChannelExit.table[in_chan_id] = self
@@ -306,9 +305,6 @@ class ChannelExit:
         If the fragment completes the mix message, all completed mix messages
         will be sent out over their sockets.
         """
-
-        self.padding = len(request) - FRAG_SIZE
-
         fragment, _ = cut(request, FRAG_SIZE)  # cut off any padding
 
         self.mix_msg_store.parse_fragment(fragment)

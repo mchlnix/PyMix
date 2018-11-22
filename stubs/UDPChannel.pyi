@@ -1,30 +1,36 @@
 from selectors import DefaultSelector
 from socket import socket
-from typing import List, Dict, ClassVar
+from typing import List, Dict, ClassVar, Tuple
 
 from petlib.bn import Bn
 from petlib.ec import EcPt
+from sphinxmix import SphinxParams
 
 from MixMessage import MixMessage, MixMessageStore
 from Types import AddressTuple
 
+params: SphinxParams
+params_dict: Dict[Tuple[int, int], SphinxParams]
 
 class ChannelEntry:
-    out_chan_list: ClassVar[List[int]] = []
+    out_chan_list: ClassVar[List[int]]
+    to_mix: ClassVar[List[bytes]]
     to_client: ClassVar[List[bytes]]
     table: ClassVar[Dict[int, ChannelEntry]]
 
     src_addr: AddressTuple
     dest_addr: AddressTuple
-    pub_comps: List[EcPt]
     chan_id: int
-    keys: List[bytes]
+
+    pub_comps: List[EcPt]
+    sym_keys: List[bytes]
+
     counters: List[int]
     packets: List[bytes]
     mix_msg_store: MixMessageStore
     allowed_to_send: bool
 
-    def __init__(self, src_addr: AddressTuple, dest_addr: AddressTuple, pub_comps: List[EcPt], mix_count: int) -> None: ...
+    def __init__(self, src_addr: AddressTuple, dest_addr: AddressTuple, pub_comps: List[EcPt]) -> None: ...
     def chan_init_msg(self) -> bytes: ...
     def chan_confirm_msg(self) -> None: ...
     def make_request_fragments(self, request: bytes) -> None: ...
@@ -57,13 +63,12 @@ class ChannelMid:
     initialized: bool
 
     def __init__(self, in_chan_id: int) -> None: ...
-    def forward_request(self, request: bytes): ...
-    def forward_response(self, response: bytes): ...
+    def forward_request(self, request: bytes) -> None: ...
+    def forward_response(self, response: bytes) -> None: ...
+    def parse_channel_init(self, channel_init: bytes, priv_comp: Bn) -> None: ...
+
     @staticmethod
     def _check_replay_window(ctr_list: List[int], ctr: int) -> bool: ...
-
-    def parse_channel_init(self, channel_init: bytes, priv_comp: Bn): ...
-
     @staticmethod
     def random_channel() -> int: ...
 
@@ -76,13 +81,13 @@ class ChannelExit:
     in_chan_id: int
     out_sock: socket
     dest_addr: AddressTuple
-    padding: int
     mix_msg_store: MixMessageStore
 
     def __init__(self, in_chan_id:int) -> None: ...
-    def recv_request(self, request: bytes): ...
-    def recv_response(self):...
-    def parse_channel_init(self, channel_init: bytes): ...
+    def recv_request(self, request: bytes)-> None: ...
+    def recv_response(self) -> None: ...
+    def parse_channel_init(self, channel_init: bytes) -> None: ...
+    def send_chan_confirm(self) -> None: ...
 
     @staticmethod
     def random_socket() -> socket: ...
