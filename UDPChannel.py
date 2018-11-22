@@ -11,7 +11,7 @@ from MixMessage import FRAG_SIZE, MixMessageStore, make_fragments, PACKET_SIZE
 from constants import CHAN_ID_SIZE, MIN_PORT, MAX_PORT, UDP_MTU, \
     CTR_PREFIX_LEN, \
     CTR_MODE_PADDING, IPV4_LEN, PORT_LEN, CHAN_INIT_MSG_FLAG, DATA_MSG_FLAG, \
-    CHAN_CONFIRM_MSG_FLAG, FLAG_LEN, REPLAY_WINDOW_SIZE, SPHINX_PARAMS
+    CHAN_CONFIRM_MSG_FLAG, FLAG_LEN, SPHINX_PARAMS
 from util import i2b, b2i, padded, random_channel_id, cut, b2ip, ip2b, \
     gen_ctr_prefix, gen_sym_key, ctr_cipher
 
@@ -161,12 +161,7 @@ class ChannelMid:
         ChannelMid.table_out[self.out_chan_id] = self
         ChannelMid.table_in[self.in_chan_id] = self
 
-        self.ctr_own = None
-        self.ctr_next = None
         self.key = None
-
-        self.last_prev_ctrs = []
-        self.last_next_ctrs = []
 
         self.initialized = False
 
@@ -174,9 +169,6 @@ class ChannelMid:
         """Takes a mix fragment, already stripped of the channel id."""
         ctr, cipher_text = cut(request, CTR_PREFIX_LEN)
         ctr = b2i(ctr)
-
-        if not ChannelMid._check_replay_window(self.last_prev_ctrs, ctr):
-            return
 
         cipher = ctr_cipher(self.key, ctr)
 
@@ -192,23 +184,12 @@ class ChannelMid:
 
         msg_type, response = cut(response, FLAG_LEN)
 
-        if self.last_next_ctrs[-1] != 0:  # if this is 0 don't check for a ctr
-            ctr, _ = cut(response, CTR_PREFIX_LEN)
-            ctr_int = b2i(ctr)
-
-            if not ChannelMid._check_replay_window(self.last_next_ctrs,
-                                                   ctr_int):
-                print("Caught replay detection for", self.out_chan_id)
-                return
-
-        cipher = ctr_cipher(self.key, self.ctr_own)
+        counter = gen_ctr_prefix()
+        cipher = ctr_cipher(self.key, counter)
 
         forward_msg = cipher.encrypt(response)
 
-        response = msg_type + i2b(self.in_chan_id, CHAN_ID_SIZE) + i2b(
-            self.ctr_own, CTR_PREFIX_LEN) + forward_msg
-
-        self.ctr_own += 1
+        response = msg_type + i2b(self.in_chan_id, CHAN_ID_SIZE) + i2b(counter, CTR_PREFIX_LEN) + forward_msg
 
         print("data", self.in_chan_id, "<-", self.out_chan_id, "len:", len(forward_msg))
 
@@ -258,8 +239,6 @@ class ChannelMid:
 
         self.ctr_own = 0
         self.ctr_next = 0
-        self.last_prev_ctrs = [self.ctr_own] * REPLAY_WINDOW_SIZE
-        self.last_next_ctrs = [self.ctr_next] * REPLAY_WINDOW_SIZE
 
         print("init", self.in_chan_id, "->", self.out_chan_id, "len:", len(cipher_text))
 
@@ -329,7 +308,7 @@ class ChannelExit:
 
             print("data", self.in_chan_id, "<-", self.dest_addr, "len:", len(packet))
 
-            ChannelExit.to_mix.append(DATA_MSG_FLAG + i2b(self.in_chan_id, CHAN_ID_SIZE) +
+            ChannelExit.to_mix.append(DATA_MSG_FLAG + i2b(self.in_chan_id, CHAN_ID_SIZE) + bytes(CTR_PREFIX_LEN) +
                                       packet)
 
     def parse_channel_init(self, channel_init):
@@ -354,7 +333,7 @@ class ChannelExit:
 
     def send_chan_confirm(self):
         print("init", self.in_chan_id, "<-", self.dest_addr, "len:", PACKET_SIZE)
-        ChannelExit.to_mix.append(CHAN_CONFIRM_MSG_FLAG + i2b(self.in_chan_id, CHAN_ID_SIZE) +
+        ChannelExit.to_mix.append(CHAN_CONFIRM_MSG_FLAG + i2b(self.in_chan_id, CHAN_ID_SIZE) + bytes(CTR_PREFIX_LEN) +
                                   get_random_bytes(PACKET_SIZE))
 
     @staticmethod

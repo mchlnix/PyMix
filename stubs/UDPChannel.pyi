@@ -53,12 +53,7 @@ class ChannelMid:
 
     in_chan_id: int
     out_chan_id: int
-    ctr_own: int
-    ctr_next: int
     key: bytes
-
-    last_prev_ctrs = List[int]
-    last_next_ctrs = List[int]
 
     initialized: bool
 
@@ -67,8 +62,6 @@ class ChannelMid:
     def forward_response(self, response: bytes) -> None: ...
     def parse_channel_init(self, channel_init: bytes, priv_comp: Bn) -> None: ...
 
-    @staticmethod
-    def _check_replay_window(ctr_list: List[int], ctr: int) -> bool: ...
     @staticmethod
     def random_channel() -> int: ...
 

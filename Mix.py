@@ -7,8 +7,8 @@ from Crypto.Random.random import StrongRandom
 from petlib.bn import Bn
 
 from UDPChannel import ChannelMid
-from constants import UDP_MTU, SYM_KEY_LEN, DATA_MSG_FLAG, SPHINX_PARAMS
-from util import read_cfg_values, link_decrypt, link_encrypt
+from constants import UDP_MTU, SYM_KEY_LEN, DATA_MSG_FLAG, SPHINX_PARAMS, LINK_CTR_START, REPLAY_WINDOW_SIZE
+from util import read_cfg_values, link_decrypt, link_encrypt, check_replay_window
 
 STORE_LIMIT = 1
 
@@ -24,8 +24,6 @@ class Mix:
         self.priv_comp = secret
         self.pub_comp = params.group.expon(params.group.g, [self.priv_comp])
 
-
-
         # create sockets
         # the 'port' arg is which one to listen and send datagrams from
         # the 'dest_ip:port' is the destination to send mix packets to
@@ -37,6 +35,11 @@ class Mix:
         self.next_addr = next_addr
         self.mix_addr = None
 
+        self.req_link_counter = LINK_CTR_START
+        self.res_link_counter = LINK_CTR_START
+        self.req_replay_window = [LINK_CTR_START] * REPLAY_WINDOW_SIZE
+        self.res_replay_window = [LINK_CTR_START] * REPLAY_WINDOW_SIZE
+
         print("Mix.py listening on {}".format(own_addr))
 
     def handle_mix_fragment(self, packet):
@@ -47,8 +50,10 @@ class Mix:
         the client or previous mix to an outgoing channel id mapped to it by
         this mix instance. The prepared packets are stored to be sent out
         later."""
-        in_id, msg_ctr, fragment, msg_type = link_decrypt(
+        link_ctr, in_id, msg_ctr, fragment, msg_type = link_decrypt(
             bytes(SYM_KEY_LEN), packet)
+
+        check_replay_window(self.req_replay_window, link_ctr)
 
         # connect incoming chan id with address of the packet
         if msg_type == DATA_MSG_FLAG:
@@ -83,8 +88,10 @@ class Mix:
         expected nor supported. Expect a KeyError in that case."""
         # map the out going id, we gave the responder to the incoming id the
         # packet had, then get the src ip for that channel id
-        out_id, msg_ctr, fragment, msg_type = link_decrypt(
+        link_ctr, out_id, msg_ctr, fragment, msg_type = link_decrypt(
             bytes(SYM_KEY_LEN), response)
+
+        check_replay_window(self.res_replay_window, link_ctr)
 
         channel = ChannelMid.table_out[out_id]
 
@@ -113,9 +120,10 @@ class Mix:
                     # use bound socket to send packets
                     packet = ChannelMid.requests.pop()
 
-                    enc_packet = link_encrypt(bytes(SYM_KEY_LEN), packet)
+                    self.req_link_counter += 1
 
-                    print("Sending")
+                    enc_packet = link_encrypt(bytes(SYM_KEY_LEN), self.req_link_counter, packet)
+
                     self.incoming.sendto(enc_packet, self.next_addr)
 
             # send out responses
@@ -126,7 +134,8 @@ class Mix:
                 for _ in range(STORE_LIMIT):
                     packet = ChannelMid.responses.pop()
 
-                    enc_packet = link_encrypt(bytes(SYM_KEY_LEN), packet)
+                    self.res_link_counter += 1
+                    enc_packet = link_encrypt(bytes(SYM_KEY_LEN), self.res_link_counter, packet)
 
                     self.incoming.sendto(enc_packet, self.mix_addr)
 

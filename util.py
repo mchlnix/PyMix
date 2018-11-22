@@ -190,13 +190,11 @@ def gcm_cipher(key, counter):
                    mac_len=GCM_MAC_LEN)
 
 
-def link_encrypt(key, plain_txt):
+def link_encrypt(key, link_ctr, plain_txt):
     msg_type, chan_id, ctr_prefix, payload = cut(
         plain_txt, FLAG_LEN, CHAN_ID_SIZE, CTR_PREFIX_LEN)
 
     reserved = msg_type + get_random_bytes(RESERVED_LEN - FLAG_LEN)
-
-    link_ctr = gen_ctr_prefix()
 
     # use all 0s as link key, since they can not be exchanged yet
     cipher = gcm_cipher(key, link_ctr)
@@ -218,4 +216,19 @@ def link_decrypt(key, cipher_txt):
     chan_id, msg_ctr, msg_type, reserved = cut(
         plain_header, CHAN_ID_SIZE, CTR_PREFIX_LEN, FLAG_LEN)
 
-    return b2i(chan_id), msg_ctr, fragment, msg_type
+    return b2i(link_ctr), b2i(chan_id), msg_ctr, fragment, msg_type
+
+
+def check_replay_window(ctr_list, ctr):
+    if ctr in ctr_list:
+        raise Exception("Already seen ctr value", ctr)
+    elif ctr < ctr_list[0]:
+        raise Exception("Ctr value", ctr, "too small")
+
+    ctr_list.append(ctr)
+
+    # remove the smallest element
+    ctr_list.sort()
+    ctr_list.pop(0)
+
+    return True

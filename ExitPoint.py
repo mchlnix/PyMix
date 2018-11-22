@@ -9,9 +9,8 @@ from selectors import EVENT_READ
 from socket import socket, AF_INET, SOCK_DGRAM as UDP
 
 from UDPChannel import ChannelExit
-from constants import UDP_MTU, CHAN_ID_SIZE, SYM_KEY_LEN, CTR_PREFIX_LEN, \
-    CHAN_INIT_MSG_FLAG, FLAG_LEN
-from util import parse_ip_port, cut, link_decrypt, link_encrypt
+from constants import UDP_MTU, SYM_KEY_LEN, CHAN_INIT_MSG_FLAG, REPLAY_WINDOW_SIZE, LINK_CTR_START
+from util import parse_ip_port, link_decrypt, link_encrypt, check_replay_window
 
 
 class ExitPoint:
@@ -25,6 +24,9 @@ class ExitPoint:
 
         # add it to the socket selector in Channel Exit
         ChannelExit.sock_sel.register(self.sock_to_mix, EVENT_READ)
+
+        self.link_counter = LINK_CTR_START
+        self.replay_window = [LINK_CTR_START] * REPLAY_WINDOW_SIZE
 
     def run(self):
         while True:
@@ -48,8 +50,10 @@ class ExitPoint:
                     else:
                         packet = sock.recv(UDP_MTU)
 
-                    chan_id, msg_ctr, fragment, msg_type = link_decrypt(
+                    link_ctr, chan_id, msg_ctr, fragment, msg_type = link_decrypt(
                         bytes(SYM_KEY_LEN), packet)
+
+                    check_replay_window(self.replay_window, link_ctr)
 
                     # new channel detected
                     if msg_type == CHAN_INIT_MSG_FLAG:
@@ -79,12 +83,9 @@ class ExitPoint:
 
                 # send responses to mix
                 for packet in ChannelExit.to_mix:
-                    msg_type, chan_id, fragment = cut(packet, FLAG_LEN, CHAN_ID_SIZE)
+                    self.link_counter += 1
 
-                    msg_ctr = bytes(CTR_PREFIX_LEN)
-
-                    cipher = link_encrypt(bytes(SYM_KEY_LEN), msg_type +
-                                          chan_id + msg_ctr + fragment)
+                    cipher = link_encrypt(bytes(SYM_KEY_LEN), self.link_counter, packet)
 
                     self.sock_to_mix.send(cipher)
 

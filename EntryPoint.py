@@ -8,9 +8,10 @@ from petlib.ec import EcPt, EcGroup
 
 from MixMessage import MixMessageStore
 from UDPChannel import ChannelEntry
-from constants import IPV4_LEN, PORT_LEN, SYM_KEY_LEN, CHAN_CONFIRM_MSG_FLAG, SPHINX_PARAMS
+from constants import IPV4_LEN, PORT_LEN, SYM_KEY_LEN, CHAN_CONFIRM_MSG_FLAG, SPHINX_PARAMS, REPLAY_WINDOW_SIZE, \
+    LINK_CTR_START
 from util import b2i, read_cfg_values, cut, b2ip, link_encrypt, parse_ip_port, \
-    link_decrypt
+    link_decrypt, check_replay_window
 
 UDP_MTU = 65535
 
@@ -48,6 +49,10 @@ class EntryPoint:
         # the socket we listen for packet on
         self.socket = None
 
+        self.link_counter = LINK_CTR_START
+
+        self.replay_window = [LINK_CTR_START] * REPLAY_WINDOW_SIZE
+
     def set_keys(self, public_keys):
         """Initializes a cipher for en- and decrypting using the given keys."""
         self.pub_comps = public_keys
@@ -56,8 +61,10 @@ class EntryPoint:
         """Takes a mix fragment and the channel id it came from. This
         represents a part of a response that was send back through the mix
         chain."""
-        chan_id, msg_ctr, fragment, msg_type = link_decrypt(
+        link_ctr, chan_id, msg_ctr, fragment, msg_type = link_decrypt(
             bytes(SYM_KEY_LEN), response)
+
+        check_replay_window(self.replay_window, link_ctr)
 
         channel = ChannelEntry.table[chan_id]
 
@@ -110,15 +117,18 @@ class EntryPoint:
 
             # send to mix
             for channel in ChannelEntry.table.values():
+
                 if channel.allowed_to_send:
                     for packet in channel.packets:
-                        cipher = link_encrypt(bytes(SYM_KEY_LEN), packet)
+                        self.link_counter += 1
+                        cipher = link_encrypt(bytes(SYM_KEY_LEN), self.link_counter, packet)
 
                         self.socket.sendto(cipher, mix_addr)
 
                     channel.packets.clear()
                 else:
-                    cipher = link_encrypt(bytes(SYM_KEY_LEN), channel.chan_init_msg())
+                    self.link_counter += 1
+                    cipher = link_encrypt(bytes(SYM_KEY_LEN), self.link_counter, channel.chan_init_msg())
 
                     self.socket.sendto(cipher, mix_addr)
 

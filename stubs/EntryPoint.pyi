@@ -15,6 +15,9 @@ class EntryPoint:
     pub_comps: List[EcPt]
     socket: socket
 
+    link_counter: int
+    replay_window: List[int]
+
     def __init__(self, listen_addr: AddressTuple, addr_to_mix: AddressTuple): ...
     def set_keys(self, keys: List[Bn]) -> None: ...
     def get_outgoing_chan_id(self, src_addr: AddressTuple, dest_addr: AddressTuple) -> int: ...
