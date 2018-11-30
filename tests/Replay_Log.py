@@ -21,10 +21,10 @@ start_time = None
 
 with open(args.packet_log, "r") as f:
     for line in f.readlines():
-        pack_id, timestamp, _, _, prot, *_ = line.split(" ")
+        s_pack_id, s_timestamp, _, _, prot, _ = line.split(" ")
 
-        pack_id = int(pack_id)
-        timestamp = float(timestamp)
+        pack_id = int(s_pack_id)
+        timestamp = float(s_timestamp)
 
         if prot == "UDP":
             pack_len = int(line.split(" ")[8].split("=")[1])
