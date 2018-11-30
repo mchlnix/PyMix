@@ -6,14 +6,13 @@ from sphinxmix.SphinxClient import Nenc, create_forward_message, pack_message, P
     receive_forward, Dest_flag
 from sphinxmix.SphinxNode import sphinx_process
 
-from Crypto.Random import get_random_bytes
 from MixMessage import FRAG_SIZE, MixMessageStore, make_fragments, PACKET_SIZE
 from constants import CHAN_ID_SIZE, MIN_PORT, MAX_PORT, UDP_MTU, \
     CTR_PREFIX_LEN, \
     CTR_MODE_PADDING, IPV4_LEN, PORT_LEN, CHAN_INIT_MSG_FLAG, DATA_MSG_FLAG, \
     CHAN_CONFIRM_MSG_FLAG, FLAG_LEN, SPHINX_PARAMS
 from util import i2b, b2i, padded, random_channel_id, cut, b2ip, ip2b, \
-    gen_ctr_prefix, gen_sym_key, ctr_cipher
+    gen_ctr_prefix, gen_sym_key, ctr_cipher, get_random_bytes
 
 params = SPHINX_PARAMS
 params_dict = {(params.max_len, params.m): params}

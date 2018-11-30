@@ -4,7 +4,7 @@ from os.path import realpath
 script_dir = "/".join(realpath(__file__).split("/")[:-1])
 path.append(script_dir + "/..")
 
-from Crypto.Random import get_random_bytes
+from Cryptodome.Random import get_random_bytes
 
 from util import gen_sym_key
 from MsgV3 import MsgFactory

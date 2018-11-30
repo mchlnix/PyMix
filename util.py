@@ -3,11 +3,10 @@
    builtin functionality, when it was not convenient enough to use."""
 from math import ceil
 
-from Crypto.Random.random import randint
-
-from Crypto.Cipher import AES
-from Crypto.Random import get_random_bytes
-from Crypto.Util import Counter
+from Cryptodome.Random.random import randint
+from Cryptodome.Cipher import AES
+from Cryptodome.Random import get_random_bytes
+from Cryptodome.Util import Counter
 from constants import MAX_CHAN_ID, MIN_CHAN_ID, SYM_KEY_LEN, CTR_PREFIX_LEN, \
     GCM_MAC_LEN, CHAN_ID_SIZE, RESERVED_LEN, FRAGMENT_HEADER_LEN, NONCE_LEN, \
     FLAG_LEN

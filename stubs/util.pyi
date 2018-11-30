@@ -1,9 +1,13 @@
 from typing import List, Sequence, Dict, Tuple
 
-from Crypto.Cipher._mode_ctr import CtrMode
-from Crypto.Cipher._mode_gcm import GcmMode
+from Cryptodome.Cipher._mode_ctr import CtrMode
+from Cryptodome.Cipher._mode_gcm import GcmMode
+from Cryptodome.Random import get_random_bytes as _get_random_bytes
+from Cryptodome.Random.random import shuffle as _shuffle
 from Types import AddressTuple
 
+get_random_bytes = _get_random_bytes
+shuffle = _shuffle
 
 def b2i(int_in_bytes: bytes) -> int: ...
 def i2b(integer: int, length: int) -> bytes: ...

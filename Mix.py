@@ -3,12 +3,11 @@
 from argparse import ArgumentParser
 from socket import socket, AF_INET, SOCK_DGRAM as UDP
 
-from Crypto.Random.random import StrongRandom
 from petlib.bn import Bn
 
 from UDPChannel import ChannelMid
 from constants import UDP_MTU, SYM_KEY_LEN, DATA_MSG_FLAG, SPHINX_PARAMS, LINK_CTR_START, REPLAY_WINDOW_SIZE
-from util import read_cfg_values, link_decrypt, link_encrypt, check_replay_window
+from util import read_cfg_values, link_decrypt, link_encrypt, check_replay_window, shuffle
 
 STORE_LIMIT = 1
 
@@ -114,7 +113,7 @@ class Mix:
             # send out requests
             if len(ChannelMid.requests) >= STORE_LIMIT:
                 # mix packets before sending
-                StrongRandom().shuffle(ChannelMid.requests)
+                shuffle(ChannelMid.requests)
                 # send STORE_LIMIT packets
                 for _ in range(STORE_LIMIT):
                     # use bound socket to send packets
@@ -129,7 +128,7 @@ class Mix:
             # send out responses
             if len(ChannelMid.responses) >= STORE_LIMIT:
                 # mix packets before sending
-                StrongRandom().shuffle(ChannelMid.responses)
+                shuffle(ChannelMid.responses)
                 # send STORE_LIMIT packets
                 for _ in range(STORE_LIMIT):
                     packet = ChannelMid.responses.pop()
