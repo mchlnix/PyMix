@@ -6,6 +6,7 @@ from math import ceil
 from Cryptodome.Random.random import randint
 from Cryptodome.Cipher import AES
 from Cryptodome.Random import get_random_bytes
+from Cryptodome.Random.random import shuffle
 from Cryptodome.Util import Counter
 from constants import MAX_CHAN_ID, MIN_CHAN_ID, SYM_KEY_LEN, CTR_PREFIX_LEN, \
     GCM_MAC_LEN, CHAN_ID_SIZE, RESERVED_LEN, FRAGMENT_HEADER_LEN, NONCE_LEN, \

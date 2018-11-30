@@ -48,3 +48,5 @@ SPHINX_INIT_SIZE = SPHINX_BODY_LEN + SPHINX_HEADER_LEN + SPHINX_OVERHEAD
 
 # body_len cannot be less than twice the secret size k, because of the definition of beta in the paper
 SPHINX_PARAMS = SphinxParams(header_len=SPHINX_HEADER_LEN, body_len=SPHINX_BODY_LEN)
+
+MIX_COUNT = 3

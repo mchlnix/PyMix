@@ -1,13 +1,11 @@
-from typing import List
+from typing import List, Tuple
 
+from petlib.bn import Bn
 from petlib.ec import EcPt
 from sphinxmix.SphinxParams import SphinxParams
 
+params: SphinxParams
 
-class MsgFactory:
-    pub_mix_keys: List[EcPt]
-    params: SphinxParams
-
-    def __init__(self, pub_mix_keys: List[EcPt], params: SphinxParams) -> None: ...
-    def gen_init_msg(self, channel_keys: List[bytes], payload: bytes) -> bytes: ...
-    def gen_blind(self, group_elem: EcPt, secret: EcPt) -> EcPt: ...
+def gen_init_msg(pub_mix_keys: List[EcPt], channel_keys: List[bytes], payload: bytes) -> bytes: ...
+def gen_blind(secret: EcPt) -> EcPt: ...
+def process(priv_mix_key: Bn, message) -> Tuple[bytes, bytes, bytes]: ...

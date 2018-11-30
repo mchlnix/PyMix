@@ -1,6 +1,6 @@
 from random import randint
 
-from constants import CTR_PREFIX_LEN, SPHINX_INIT_SIZE
+from constants import CTR_PREFIX_LEN, SPHINX_INIT_SIZE, MIX_COUNT
 from util import b2i, i2b
 from util import padded, partitions as fragments, partitioned as fragmented
 
@@ -15,10 +15,6 @@ from util import padded, partitions as fragments, partitioned as fragmented
 # Number of padding bytes       2 Bytes #
 # Payload                     160 Bytes #
 #########################################
-
-# typical amount of mixes in the mix chain is 3
-
-MIX_COUNT = 3
 
 # channel init msg size
 PACKET_SIZE = SPHINX_INIT_SIZE
