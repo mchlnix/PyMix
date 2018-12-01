@@ -8,7 +8,7 @@ from petlib.ec import EcPt, EcGroup
 
 from MixMessage import MixMessageStore
 from UDPChannel import ChannelEntry
-from constants import IPV4_LEN, PORT_LEN, SYM_KEY_LEN, CHAN_CONFIRM_MSG_FLAG, SPHINX_PARAMS, REPLAY_WINDOW_SIZE, \
+from constants import IPV4_LEN, PORT_LEN, SYM_KEY_LEN, CHAN_CONFIRM_MSG_FLAG, REPLAY_WINDOW_SIZE, \
     LINK_CTR_START
 from util import b2i, read_cfg_values, cut, b2ip, link_encrypt, parse_ip_port, \
     link_decrypt, check_replay_window
@@ -18,8 +18,6 @@ UDP_MTU = 65535
 OWN_ADDR_ARG = "own_ip:port"
 MIX_ADDR_ARG = "mix_ip:port"
 KEYFILE_ARG = "keyfile"
-
-params = SPHINX_PARAMS
 
 
 class EntryPoint:

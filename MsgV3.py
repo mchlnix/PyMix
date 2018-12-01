@@ -6,6 +6,10 @@ from util import ctr_cipher, cut, gen_sym_key
 params = SPHINX_PARAMS
 
 
+def group_expon(exponent):
+    return params.group.expon_base([exponent])
+
+
 def gen_init_msg(pub_mix_keys, channel_keys, payload):
     assert len(pub_mix_keys) == len(channel_keys)
 

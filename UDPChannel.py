@@ -2,17 +2,14 @@ from random import randint
 from selectors import DefaultSelector, EVENT_READ
 from socket import socket, AF_INET, SOCK_DGRAM as UDP
 
-from sphinxmix.SphinxClient import Nenc, create_forward_message, pack_message, PFdecode, unpack_message, Relay_flag, \
-    receive_forward, Dest_flag
-from sphinxmix.SphinxNode import sphinx_process
-
 from MixMessage import FRAG_SIZE, MixMessageStore, make_fragments, PACKET_SIZE
+from MsgV3 import gen_init_msg, process
 from constants import CHAN_ID_SIZE, MIN_PORT, MAX_PORT, UDP_MTU, \
     CTR_PREFIX_LEN, \
     CTR_MODE_PADDING, IPV4_LEN, PORT_LEN, CHAN_INIT_MSG_FLAG, DATA_MSG_FLAG, \
     CHAN_CONFIRM_MSG_FLAG, FLAG_LEN, SPHINX_PARAMS
-from util import i2b, b2i, padded, random_channel_id, cut, b2ip, ip2b, \
-    gen_ctr_prefix, gen_sym_key, ctr_cipher, get_random_bytes
+from util import i2b, b2i, padded, random_channel_id, cut, b2ip, gen_ctr_prefix, gen_sym_key, ctr_cipher, \
+    get_random_bytes, ip2b
 
 params = SPHINX_PARAMS
 params_dict = {(params.max_len, params.m): params}
@@ -51,28 +48,17 @@ class ChannelEntry:
         asymmetric keys in the future. These will be used to encrypt the
         channel init message and the channel keys that the client decided on.
         """
-        # since we don't need the addresses, we use them to distribute the keys
-        # the first key is never used, since we send it to the first mix directly
-        # the last mix has to get the key from the payload
-        keys = [b""] + self.sym_keys[:-1]
-
         ip, port = self.dest_addr
 
         # destination of the channel and the sym key for the last mix
-        destination = ip2b(ip) + i2b(port, PORT_LEN) + self.sym_keys[-1]
+        destination = ip2b(ip) + i2b(port, PORT_LEN)
 
-        routing_info = [Nenc(key) for key in keys]
+        chan_init = gen_init_msg(self.pub_comps, self.sym_keys, destination)
 
-        payload = b""
-
-        header, delta = create_forward_message(params, routing_info, self.pub_comps, destination, payload)
-
-        chan_init = pack_message(params, (header, delta))
+        print("Len init:", len(chan_init))
 
         # we add a random ctr prefix, because the link encryption expects there
         # to be one, even though the channel init wasn't sym encrypted
-        print("Len init:", len(chan_init))
-
         return CHAN_INIT_MSG_FLAG + i2b(self.chan_id, CHAN_ID_SIZE) + get_random_bytes(
             CTR_PREFIX_LEN) + chan_init
 
@@ -209,23 +195,8 @@ class ChannelMid:
     def parse_channel_init(self, channel_init, priv_comp):
         """Takes an already decrypted channel init message and reads the key.
         """
-        px, (header, delta) = unpack_message(params_dict, channel_init)
 
-        ret = sphinx_process(params, priv_comp, header, delta)
-        (tag, info, (header, delta), mac_key) = ret
-
-        routing = PFdecode(params, info)
-
-        if routing[0] == Relay_flag:
-            flag, sym_key = routing
-            cipher_text = pack_message(params, (header, delta))
-        elif routing[0] == Dest_flag:
-            dest_and_sym_key, msg = receive_forward(params, mac_key, delta)
-
-            dest, sym_key = cut(dest_and_sym_key, IPV4_LEN + PORT_LEN)
-            cipher_text = dest
-        else:
-            raise Exception()
+        sym_key, payload, channel_init = process(priv_comp, channel_init)
 
         if self.key is not None:
             assert self.key == sym_key
@@ -233,14 +204,11 @@ class ChannelMid:
         else:
             self.key = sym_key
 
-        self.ctr_own = 0
-        self.ctr_next = 0
-
-        print("init", self.in_chan_id, "->", self.out_chan_id, "len:", len(cipher_text))
+        print("init", self.in_chan_id, "->", self.out_chan_id, "len:", len(channel_init))
 
         # we add an empty ctr prefix, because the link encryption expects there
         # to be one, even though the channel init wasn't sym encrypted
-        packet = CHAN_INIT_MSG_FLAG + i2b(self.out_chan_id, CHAN_ID_SIZE) + get_random_bytes(CTR_PREFIX_LEN) + padded(cipher_text, PACKET_SIZE)
+        packet = CHAN_INIT_MSG_FLAG + i2b(self.out_chan_id, CHAN_ID_SIZE) + get_random_bytes(CTR_PREFIX_LEN) + padded(channel_init, PACKET_SIZE)
 
         ChannelMid.requests.append(packet)
 
@@ -308,7 +276,9 @@ class ChannelExit:
                                       packet)
 
     def parse_channel_init(self, channel_init):
-        ip, port, _ = cut(channel_init, IPV4_LEN, PORT_LEN)
+        _, _, payload = cut(channel_init, 29, 48)
+
+        ip, port, _ = cut(payload, IPV4_LEN, PORT_LEN)
 
         ip = b2ip(ip)
         port = b2i(port)

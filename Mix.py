@@ -5,14 +5,12 @@ from socket import socket, AF_INET, SOCK_DGRAM as UDP
 
 from petlib.bn import Bn
 
+from MsgV3 import group_expon
 from UDPChannel import ChannelMid
-from constants import UDP_MTU, SYM_KEY_LEN, DATA_MSG_FLAG, SPHINX_PARAMS, LINK_CTR_START, REPLAY_WINDOW_SIZE
+from constants import UDP_MTU, SYM_KEY_LEN, DATA_MSG_FLAG, LINK_CTR_START, REPLAY_WINDOW_SIZE
 from util import read_cfg_values, link_decrypt, link_encrypt, check_replay_window, shuffle
 
 STORE_LIMIT = 1
-
-params = SPHINX_PARAMS
-params_dict = {(params.max_len, params.m): params}
 
 
 class Mix:
@@ -21,7 +19,7 @@ class Mix:
         # decrypt for messages from a client
         # encrypt for responses to the client
         self.priv_comp = secret
-        self.pub_comp = params.group.expon(params.group.g, [self.priv_comp])
+        self.pub_comp = group_expon(self.priv_comp)
 
         # create sockets
         # the 'port' arg is which one to listen and send datagrams from
