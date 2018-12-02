@@ -21,7 +21,7 @@ start_time = None
 
 with open(args.packet_log, "r") as f:
     for line in f.readlines():
-        s_pack_id, s_timestamp, _, _, prot, _ = line.split(" ")
+        s_pack_id, s_timestamp, _, _, prot, *_ = line.split(" ")
 
         pack_id = int(s_pack_id)
         timestamp = float(s_timestamp)
