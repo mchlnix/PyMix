@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 
 PYTHONPATH="."
-
 export PYTHONPATH
+
+RANDOM_SENDERS=3
 
 tests/Recv_and_answer.py 127.0.0.1:45000 >/dev/null &
 
@@ -10,7 +11,7 @@ RECV_PID="$!"
 
 sleep 1
 
-for i in {1..10}; do
+for i in {1..${RANDOM_SENDERS}}; do
     tests/Send_Random_Packets.py &
     RECV_PID="$RECV_PID $!"
 done
@@ -23,7 +24,7 @@ RECV_PID="$RECV_PID $!"
 
 sleep 1
 
-tests/Replay_Log.py tests/data/discord_call_out > tests/tmp/send-log
+tests/Replay_Log.py tests/data/Left4Dead2_out.csv > tests/tmp/send-log
 
 sleep 3
 
