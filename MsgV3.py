@@ -1,9 +1,10 @@
 from petlib.ec import EcPt
+from sphinxmix.SphinxParams import SphinxParams
 
-from constants import SYM_KEY_LEN, SPHINX_PARAMS, MIX_COUNT
+from constants import SYM_KEY_LEN, MIX_COUNT
 from util import ctr_cipher, cut, gen_sym_key
 
-params = SPHINX_PARAMS
+params = SphinxParams()
 
 
 def group_expon(exponent):

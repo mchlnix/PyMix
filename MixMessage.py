@@ -1,6 +1,6 @@
 from random import randint
 
-from constants import CTR_PREFIX_LEN, SPHINX_INIT_SIZE, MIX_COUNT
+from constants import CTR_PREFIX_LEN, MIX_COUNT, INIT_PACKET_SIZE, FRAG_PAYLOAD_SIZE
 from util import b2i, i2b
 from util import padded, partitions as fragments, partitioned as fragmented
 
@@ -13,34 +13,32 @@ from util import padded, partitions as fragments, partitioned as fragmented
 # Number of fragments           1 Byte  #
 # Number of this fragment       1 Byte  #
 # Number of padding bytes       2 Bytes #
-# Payload                     160 Bytes #
+# Payload                       x Bytes #
 #########################################
 
-# channel init msg size
-PACKET_SIZE = SPHINX_INIT_SIZE
 
-# one ctr prefix is in the header
-FRAG_SIZE = PACKET_SIZE - MIX_COUNT * CTR_PREFIX_LEN
-
-ID_SIZE = 4
+FRAG_ID_SIZE = 4
 
 FRAG_COUNT_SIZE = 1
 FRAG_INDEX_SIZE = FRAG_COUNT_SIZE  # have to stay equal size
-PADDING_SIZE = 2
+FRAG_PADDING_SIZE = 2
 
-HEADER_SIZE = ID_SIZE + FRAG_COUNT_SIZE + FRAG_INDEX_SIZE + PADDING_SIZE
+FRAG_HEADER_SIZE = FRAG_ID_SIZE + FRAG_COUNT_SIZE + FRAG_INDEX_SIZE + FRAG_PADDING_SIZE
 
-PAYLOAD_SIZE = FRAG_SIZE - HEADER_SIZE
+MAX_FRAG_COUNT = 2 ** (FRAG_COUNT_SIZE * 8) - 1
 
-MAX_FRAG_COUNT = 2**(FRAG_COUNT_SIZE*8)-1
-
-HIGHEST_ID = 2**(ID_SIZE * 8) - 1
+HIGHEST_ID = 2 ** (FRAG_ID_SIZE * 8) - 1
 LOWEST_ID = 1
+
+DATA_PACKET_SIZE = (MIX_COUNT-1) * CTR_PREFIX_LEN + FRAG_HEADER_SIZE + FRAG_PAYLOAD_SIZE
+
+if not DATA_PACKET_SIZE == INIT_PACKET_SIZE:
+    raise ValueError("Data packet size is {}, should be {}".format(DATA_PACKET_SIZE, INIT_PACKET_SIZE))
 
 
 def make_fragments(packet):
     # how many fragments will be necessary
-    frag_count = fragments(packet, PAYLOAD_SIZE)
+    frag_count = fragments(packet, FRAG_PAYLOAD_SIZE)
 
     if frag_count > MAX_FRAG_COUNT:
         raise IndexError("Message too large.", frag_count,
@@ -49,9 +47,9 @@ def make_fragments(packet):
     # how many padding bytes will be necessary
     pad_len = 0
 
-    if (len(packet) % PAYLOAD_SIZE) != 0:
+    if (len(packet) % FRAG_PAYLOAD_SIZE) != 0:
         old_len = len(packet)
-        packet = padded(packet, blocksize=PAYLOAD_SIZE)
+        packet = padded(packet, blocksize=FRAG_PAYLOAD_SIZE)
         pad_len = len(packet) - old_len
 
     # get a random packet id
@@ -59,12 +57,12 @@ def make_fragments(packet):
 
     # assemble fragments
     frags = []
-    for frag_index, fragment in enumerate(fragmented(packet, PAYLOAD_SIZE)):
+    for frag_index, fragment in enumerate(fragmented(packet, FRAG_PAYLOAD_SIZE)):
         frag = []
-        frag += i2b(packet_id, ID_SIZE)
+        frag += i2b(packet_id, FRAG_ID_SIZE)
         frag += i2b(frag_count, FRAG_COUNT_SIZE)
         frag += i2b(frag_index + 1, FRAG_INDEX_SIZE)
-        frag += i2b(pad_len, PADDING_SIZE)
+        frag += i2b(pad_len, FRAG_PADDING_SIZE)
         frag += fragment
 
         frags.append(bytearray(frag))
@@ -87,7 +85,7 @@ class MixMessageStore:
     def parse_fragment(self, raw_frag):
         index = 0
 
-        msg_id, index = _read_int(raw_frag, index, ID_SIZE)
+        msg_id, index = _read_int(raw_frag, index, FRAG_ID_SIZE)
 
         if msg_id in self.packets:
             packet = self.packets[msg_id]
@@ -98,7 +96,7 @@ class MixMessageStore:
 
         frag_index, index = _read_int(raw_frag, index, FRAG_INDEX_SIZE)
 
-        packet.pad_size, index = _read_int(raw_frag, index, PADDING_SIZE)
+        packet.pad_size, index = _read_int(raw_frag, index, FRAG_PADDING_SIZE)
 
         packet.add_fragment(frag_index, raw_frag[index:])
 
@@ -144,7 +142,7 @@ class MixMessage:
             return
 
         self.fragments[frag_index] = payload
-        self.payload_size = self.frag_count * PAYLOAD_SIZE - self.pad_size
+        self.payload_size = self.frag_count * FRAG_PAYLOAD_SIZE - self.pad_size
 
     @property
     def complete(self):

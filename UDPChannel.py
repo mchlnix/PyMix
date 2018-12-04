@@ -7,12 +7,9 @@ from MsgV3 import gen_init_msg, process
 from constants import CHAN_ID_SIZE, MIN_PORT, MAX_PORT, UDP_MTU, \
     CTR_PREFIX_LEN, \
     CTR_MODE_PADDING, IPV4_LEN, PORT_LEN, CHAN_INIT_MSG_FLAG, DATA_MSG_FLAG, \
-    CHAN_CONFIRM_MSG_FLAG, FLAG_LEN, SPHINX_PARAMS
+    CHAN_CONFIRM_MSG_FLAG, FLAG_LEN
 from util import i2b, b2i, padded, random_channel_id, cut, b2ip, gen_ctr_prefix, gen_sym_key, ctr_cipher, \
     get_random_bytes, ip2b
-
-params = SPHINX_PARAMS
-params_dict = {(params.max_len, params.m): params}
 
 
 class ChannelEntry:

@@ -7,11 +7,8 @@ path.append(script_dir + "/..")
 from Cryptodome.Random import get_random_bytes
 
 from util import gen_sym_key
-from constants import SPHINX_PARAMS
-from MsgV3 import process, gen_init_msg
+from MsgV3 import process, gen_init_msg, params
 
-
-params = SPHINX_PARAMS
 
 priv1 = params.group.gensecret()
 priv2 = params.group.gensecret()

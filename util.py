@@ -9,7 +9,7 @@ from Cryptodome.Random import get_random_bytes
 from Cryptodome.Random.random import shuffle
 from Cryptodome.Util import Counter
 from constants import MAX_CHAN_ID, MIN_CHAN_ID, SYM_KEY_LEN, CTR_PREFIX_LEN, \
-    GCM_MAC_LEN, CHAN_ID_SIZE, RESERVED_LEN, FRAGMENT_HEADER_LEN, NONCE_LEN, \
+    GCM_MAC_LEN, CHAN_ID_SIZE, RESERVED_LEN, LINK_HEADER_LEN, NONCE_LEN, \
     FLAG_LEN
 
 BYTE_ORDER = "big"
@@ -207,7 +207,7 @@ def link_encrypt(key, link_ctr, plain_txt):
 
 def link_decrypt(key, cipher_txt):
     link_ctr, header, mac, fragment = cut(cipher_txt, CTR_PREFIX_LEN,
-                                          FRAGMENT_HEADER_LEN, GCM_MAC_LEN)
+                                          LINK_HEADER_LEN, GCM_MAC_LEN)
 
     cipher = gcm_cipher(key, b2i(link_ctr))
 
