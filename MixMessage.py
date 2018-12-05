@@ -1,7 +1,8 @@
+import math
 from random import randint
 
-from constants import CTR_PREFIX_LEN, MIX_COUNT, INIT_PACKET_SIZE, FRAG_PAYLOAD_SIZE
-from util import b2i, i2b
+from constants import CTR_PREFIX_LEN, MIX_COUNT, INIT_PACKET_SIZE, FRAG_PAYLOAD_SIZE, INIT_OVERHEAD, DATA_OVERHEAD
+from util import b2i, i2b, get_random_bytes, cut
 from util import padded, partitions as fragments, partitioned as fragmented
 
 #########################################
@@ -31,9 +32,6 @@ HIGHEST_ID = 2 ** (FRAG_ID_SIZE * 8) - 1
 LOWEST_ID = 1
 
 DATA_PACKET_SIZE = (MIX_COUNT-1) * CTR_PREFIX_LEN + FRAG_HEADER_SIZE + FRAG_PAYLOAD_SIZE
-
-if not DATA_PACKET_SIZE == INIT_PACKET_SIZE:
-    raise ValueError("Data packet size is {}, should be {}".format(DATA_PACKET_SIZE, INIT_PACKET_SIZE))
 
 
 def make_fragments(packet):
@@ -173,3 +171,140 @@ class MixMessage:
             ret += "Payload:     {}...\n".format(payload)
 
         return ret
+
+
+FRAG_FLAG_SIZE = 1
+PADDING_SIZE = 2
+
+
+def how_many_padding_bytes_necessary(padding_len):
+    if padding_len in [0, 1]:
+        return 1
+
+    l2 = math.log2(padding_len)
+
+    return math.ceil(l2/7)
+
+
+def parse_padding_bytes(padding_bytes):
+    padding = 0
+
+    for byte in padding_bytes:
+        padding += byte & 0b0111_1111
+
+        if byte & 0b1000_0000:
+            break
+        else:
+            padding <<= 7
+
+    return padding
+
+
+def padding_len_bytes(padding_len):
+    if padding_len < 0:
+        raise ValueError("No negative padding lengths. Was", padding_len)
+
+    if padding_len == 0:
+        return bytes(), 0
+
+    # get amount of padding bytes
+    padding_bytes_len = how_many_padding_bytes_necessary(padding_len)
+    padding_len -= padding_bytes_len
+
+    ret_padding_len = padding_len
+
+    padding_bytes = []
+
+    while True:
+        padding_bytes.append(padding_len % 0b1000_0000)
+        padding_len >>= 7
+
+        if padding_len <= 0:
+            break
+
+    padding_bytes[0] |= 0b1000_0000
+
+    return bytes(padding_bytes_len - len(padding_bytes)) + bytes(reversed(padding_bytes)), ret_padding_len
+
+
+def parse_fragment(fragment):
+    packet_id, frag_byte, rest = cut(fragment, FRAG_ID_SIZE, FRAG_FLAG_SIZE)
+
+    print("Packet id is:", b2i(packet_id))
+
+    if b2i(frag_byte) & FragmentGenerator.LAST_FRAG_FLAG:
+        print("Fragment is the last fragment.")
+
+    payload_len = len(rest)
+
+    if b2i(frag_byte) & FragmentGenerator.PADDING_FLAG:
+        print("Fragment has a padding length field.")
+
+        padding_len = parse_padding_bytes(rest)
+
+        print("Fragment has", padding_len, "padding bytes.")
+
+        payload_len -= 1  # padding length byte
+
+        if padding_len > 129:
+            payload_len -= 1  # another padding length byte
+
+        payload_len -= padding_len
+
+    print("Fragment has", payload_len, " payload bytes.")
+
+
+class FragmentGenerator:
+    data_payload_limit = FRAG_PAYLOAD_SIZE
+    init_payload_limit = FRAG_PAYLOAD_SIZE - (INIT_OVERHEAD - DATA_OVERHEAD)
+
+    PADDING_FLAG = 0x80
+    LAST_FRAG_FLAG = 0x40
+
+    PADDING_BITMASK = 0x7F
+
+    def __init__(self, udp_payload):
+        self.udp_payload = udp_payload
+        self.packet_id = randint(LOWEST_ID, HIGHEST_ID)
+        self.current_fragment = 0
+
+    def get_init_fragment(self):
+        return self._build_fragment(FragmentGenerator.init_payload_limit)
+
+    def get_data_fragment(self):
+        return self._build_fragment(FragmentGenerator.data_payload_limit)
+
+    def _build_fragment(self, payload_limit):
+        if self.current_fragment > 0b0011_1111:
+            raise ValueError("Too many fragments needed for this payload.")
+
+        if len(self.udp_payload) == 0:
+            raise ValueError("No more fragments left to generate.")
+
+        frag_byte = self.current_fragment
+
+        self.current_fragment += 1
+
+        if len(self.udp_payload) <= payload_limit:
+            frag_byte |= FragmentGenerator.LAST_FRAG_FLAG
+
+        if len(self.udp_payload) < payload_limit:
+            frag_byte |= FragmentGenerator.PADDING_FLAG
+
+            padding_bytes, padding_len = padding_len_bytes(payload_limit - len(self.udp_payload))
+        else:
+            padding_len = 0
+            padding_bytes = bytes()
+
+        fragment = i2b(self.packet_id, FRAG_ID_SIZE) + i2b(frag_byte, FRAG_FLAG_SIZE)
+
+        fragment += padding_bytes
+
+        fragment += self.udp_payload[:payload_limit] + get_random_bytes(padding_len)
+
+        self.udp_payload = self.udp_payload[payload_limit:]
+
+        return fragment
+
+    def __bool__(self):
+        return len(self.udp_payload) > 0
