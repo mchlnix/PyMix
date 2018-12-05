@@ -1,18 +1,14 @@
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, ClassVar
 
-PACKET_SIZE: int
-FRAG_SIZE: int
-ID_SIZE: int
+FRAG_ID_SIZE: int
 FRAG_COUNT_SIZE: int
 FRAG_INDEX_SIZE: int
-PADDING_SIZE: int
-DEST_IP_SIZE: int
-DEST_PORT_SIZE: int
-HEADER_SIZE: int
-PAYLOAD_SIZE: int
+FRAG_PADDING_SIZE: int
+FRAG_HEADER_SIZE: int
 MAX_FRAG_COUNT: int
 HIGHEST_ID: int
 LOWEST_ID: int
+DATA_PACKET_SIZE: int
 
 def make_fragments(packet: bytes) -> List[bytearray]: ...
 def _read_int(data: bytes, start: int, length: int) -> Tuple[int, int]: ...
@@ -40,3 +36,29 @@ class MixMessage:
     @property
     def payload(self) -> bytes: ...
     def __str__(self) -> str: ...
+
+FRAG_FLAG_SIZE: int
+PADDING_SIZE: int
+
+def how_many_padding_bytes_necessary(padding_len: int) -> int: ...
+def bytes_to_padding_length(padding_bytes: bytes) -> int: ...
+def padding_length_to_bytes(padding_length: int) -> Tuple[bytes, int]: ...
+def parse_fragment(fragment: bytes) -> None: ...
+
+class FragmentGenerator:
+    data_payload_limit = ClassVar[int]
+    init_payload_limit = ClassVar[int]
+
+    PADDING_FLAG: ClassVar[int]
+    LAST_FRAG_FLAG: ClassVar[int]
+    PADDING_BITMASK: ClassVar[int]
+
+    udp_payload: bytes
+    packet_id: int
+    current_fragment: int
+
+    def __init__(self, udp_payload: bytes) -> None: ...
+    def get_init_fragment(self) -> bytes: ...
+    def get_data_fragment(self) -> bytes: ...
+    def _build_fragment(self, payload_limit: int) -> bytes: ...
+    def __bool__(self) -> bool: ...

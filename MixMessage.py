@@ -1,7 +1,7 @@
 import math
 from random import randint
 
-from constants import CTR_PREFIX_LEN, MIX_COUNT, INIT_PACKET_SIZE, FRAG_PAYLOAD_SIZE, INIT_OVERHEAD, DATA_OVERHEAD
+from constants import CTR_PREFIX_LEN, MIX_COUNT, FRAG_PAYLOAD_SIZE, INIT_OVERHEAD, DATA_OVERHEAD
 from util import b2i, i2b, get_random_bytes, cut
 from util import padded, partitions as fragments, partitioned as fragmented
 
@@ -186,21 +186,23 @@ def how_many_padding_bytes_necessary(padding_len):
     return math.ceil(l2/7)
 
 
-def parse_padding_bytes(padding_bytes):
+def bytes_to_padding_length(padding_bytes):
     padding = 0
+    bytes_read = 0
 
     for byte in padding_bytes:
         padding += byte & 0b0111_1111
 
+        bytes_read += 1
         if byte & 0b1000_0000:
             break
         else:
             padding <<= 7
 
-    return padding
+    return padding, bytes_read
 
 
-def padding_len_bytes(padding_len):
+def padding_length_to_bytes(padding_len):
     if padding_len < 0:
         raise ValueError("No negative padding lengths. Was", padding_len)
 
@@ -238,18 +240,13 @@ def parse_fragment(fragment):
     payload_len = len(rest)
 
     if b2i(frag_byte) & FragmentGenerator.PADDING_FLAG:
-        print("Fragment has a padding length field.")
+        padding_len, padding_bytes = bytes_to_padding_length(rest)
 
-        padding_len = parse_padding_bytes(rest)
+        print("Fragment has a padding length field of size", padding_bytes, "bytes.")
 
         print("Fragment has", padding_len, "padding bytes.")
 
-        payload_len -= 1  # padding length byte
-
-        if padding_len > 129:
-            payload_len -= 1  # another padding length byte
-
-        payload_len -= padding_len
+        payload_len -= (padding_len + padding_bytes)
 
     print("Fragment has", payload_len, " payload bytes.")
 
@@ -291,7 +288,7 @@ class FragmentGenerator:
         if len(self.udp_payload) < payload_limit:
             frag_byte |= FragmentGenerator.PADDING_FLAG
 
-            padding_bytes, padding_len = padding_len_bytes(payload_limit - len(self.udp_payload))
+            padding_bytes, padding_len = padding_length_to_bytes(payload_limit - len(self.udp_payload))
         else:
             padding_len = 0
             padding_bytes = bytes()

@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-from MixMessage import FragmentGenerator, padding_len_bytes, how_many_padding_bytes_necessary, FRAG_FLAG_SIZE, \
+from MixMessage import FragmentGenerator, padding_length_to_bytes, how_many_padding_bytes_necessary, FRAG_FLAG_SIZE, \
     FRAG_ID_SIZE
 from MsgV3 import process, params, gen_init_msg
 from constants import FRAG_PAYLOAD_SIZE
@@ -27,15 +27,15 @@ paddings = {0: bytes(0),
             }
 
 try:
-    for padding in paddings:
-        padding_bytes, _ = padding_len_bytes(padding)
-        print("\rPadding", padding, "was", padding_bytes, end="")
-        assert paddings[padding] == padding_bytes
+    for padding_length in paddings:
+        padding_bytes, _ = padding_length_to_bytes(padding_length)
+        print("\rPadding", padding_length, "was", padding_bytes, end="")
+        assert paddings[padding_length] == padding_bytes
 except AssertionError as ae:
     print()
     raise ae
 
-print("\rSuccess - padding_len_bytes                              ")
+print("\rSuccess - padding_length_to_bytes                              ")
 
 # MsgV3 format
 
