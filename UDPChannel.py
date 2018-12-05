@@ -2,7 +2,7 @@ from random import randint
 from selectors import DefaultSelector, EVENT_READ
 from socket import socket, AF_INET, SOCK_DGRAM as UDP
 
-from MixMessage import FRAG_SIZE, MixMessageStore, make_fragments, PACKET_SIZE
+from MixMessage import FRAG_SIZE, MixMessageStore, make_fragments, DATA_PACKET_SIZE, FragmentGenerator
 from MsgV3 import gen_init_msg, process
 from constants import CHAN_ID_SIZE, MIN_PORT, MAX_PORT, UDP_MTU, \
     CTR_PREFIX_LEN, \
@@ -205,7 +205,9 @@ class ChannelMid:
 
         # we add an empty ctr prefix, because the link encryption expects there
         # to be one, even though the channel init wasn't sym encrypted
-        packet = CHAN_INIT_MSG_FLAG + i2b(self.out_chan_id, CHAN_ID_SIZE) + get_random_bytes(CTR_PREFIX_LEN) + padded(channel_init, PACKET_SIZE)
+
+        # todo look at this one again
+        packet = CHAN_INIT_MSG_FLAG + i2b(self.out_chan_id, CHAN_ID_SIZE) + get_random_bytes(CTR_PREFIX_LEN) + padded(channel_init, DATA_PACKET_SIZE)
 
         ChannelMid.requests.append(packet)
 
@@ -265,7 +267,7 @@ class ChannelExit:
         mix_frags = make_fragments(data)
 
         for frag in mix_frags:
-            packet = padded(frag, PACKET_SIZE)
+            packet = padded(frag, DATA_PACKET_SIZE)
 
             print("data", self.in_chan_id, "<-", self.dest_addr, "len:", len(packet))
 
@@ -295,9 +297,9 @@ class ChannelExit:
         print("init", self.in_chan_id, "->", self.dest_addr, "len:", len(channel_init))
 
     def send_chan_confirm(self):
-        print("init", self.in_chan_id, "<-", self.dest_addr, "len:", PACKET_SIZE)
+        print("init", self.in_chan_id, "<-", self.dest_addr, "len:", DATA_PACKET_SIZE)
         ChannelExit.to_mix.append(CHAN_CONFIRM_MSG_FLAG + i2b(self.in_chan_id, CHAN_ID_SIZE) + bytes(CTR_PREFIX_LEN) +
-                                  get_random_bytes(PACKET_SIZE))
+                                  get_random_bytes(DATA_PACKET_SIZE))
 
     @staticmethod
     def random_socket():

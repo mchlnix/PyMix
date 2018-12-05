@@ -31,6 +31,8 @@ MAX_FRAG_COUNT = 2 ** (FRAG_COUNT_SIZE * 8) - 1
 HIGHEST_ID = 2 ** (FRAG_ID_SIZE * 8) - 1
 LOWEST_ID = 1
 
+FRAG_SIZE = FRAG_HEADER_SIZE + FRAG_PAYLOAD_SIZE
+
 DATA_PACKET_SIZE = (MIX_COUNT-1) * CTR_PREFIX_LEN + FRAG_HEADER_SIZE + FRAG_PAYLOAD_SIZE
 
 
@@ -81,22 +83,17 @@ class MixMessageStore:
         self.packets = dict()
 
     def parse_fragment(self, raw_frag):
-        index = 0
-
-        msg_id, index = _read_int(raw_frag, index, FRAG_ID_SIZE)
+        msg_id, is_last, fragment_id, payload = parse_fragment(raw_frag)
 
         if msg_id in self.packets:
             packet = self.packets[msg_id]
         else:
             packet = MixMessage(msg_id)
 
-        packet.frag_count, index = _read_int(raw_frag, index, FRAG_COUNT_SIZE)
+        if is_last:
+            packet.frag_count = fragment_id + 1
 
-        frag_index, index = _read_int(raw_frag, index, FRAG_INDEX_SIZE)
-
-        packet.pad_size, index = _read_int(raw_frag, index, FRAG_PADDING_SIZE)
-
-        packet.add_fragment(frag_index, raw_frag[index:])
+        packet.add_fragment(fragment_id, payload)
 
         self.packets[msg_id] = packet
 
@@ -132,7 +129,6 @@ class MixMessage:
         self.fragments = dict()
         self.id = msg_id
         self.frag_count = 0
-        self.pad_size = 0
         self.payload_size = 0
 
     def add_fragment(self, frag_index, payload):
@@ -140,7 +136,6 @@ class MixMessage:
             return
 
         self.fragments[frag_index] = payload
-        self.payload_size = self.frag_count * FRAG_PAYLOAD_SIZE - self.pad_size
 
     @property
     def complete(self):
@@ -153,9 +148,6 @@ class MixMessage:
             for i in range(1, self.frag_count+1):
                 payload += self.fragments[i]
 
-            if self.pad_size:
-                return payload[0: -self.pad_size]
-
         return payload
 
     def __str__(self):
@@ -164,7 +156,6 @@ class MixMessage:
         ret += "Fragments:   {}/{}\n".format(len(self.fragments),
                                              self.frag_count)
         ret += "Size:        {}\n".format(self.payload_size)
-        ret += "Padding:     {}\n".format(self.pad_size)
 
         if self.complete:
             payload = ":".join("{:02x}".format(b) for b in self.payload[0:16])
@@ -230,16 +221,26 @@ def padding_length_to_bytes(padding_len):
 
 
 def parse_fragment(fragment):
-    packet_id, frag_byte, rest = cut(fragment, FRAG_ID_SIZE, FRAG_FLAG_SIZE)
+    msg_id, frag_byte, rest = cut(fragment, FRAG_ID_SIZE, FRAG_FLAG_SIZE)
 
-    print("Packet id is:", b2i(packet_id))
+    print("MixMessage id is:", b2i(msg_id))
 
-    if b2i(frag_byte) & FragmentGenerator.LAST_FRAG_FLAG:
+    i_frag_byte = b2i(frag_byte)
+
+    fragment_id = i_frag_byte & 0b0011_1111
+
+    print("Fragment id is:", fragment_id)
+
+    is_last = i_frag_byte & FragmentGenerator.LAST_FRAG_FLAG
+
+    if is_last:
         print("Fragment is the last fragment.")
 
     payload_len = len(rest)
 
-    if b2i(frag_byte) & FragmentGenerator.PADDING_FLAG:
+    has_padding = i_frag_byte & FragmentGenerator.PADDING_FLAG
+
+    if has_padding:
         padding_len, padding_bytes = bytes_to_padding_length(rest)
 
         print("Fragment has a padding length field of size", padding_bytes, "bytes.")
@@ -248,7 +249,13 @@ def parse_fragment(fragment):
 
         payload_len -= (padding_len + padding_bytes)
 
+        payload, padding = cut(rest, payload_len)
+    else:
+        payload = rest
+
     print("Fragment has", payload_len, " payload bytes.")
+
+    return b2i(msg_id), is_last, fragment_id, payload
 
 
 class FragmentGenerator:
@@ -262,7 +269,7 @@ class FragmentGenerator:
 
     def __init__(self, udp_payload):
         self.udp_payload = udp_payload
-        self.packet_id = randint(LOWEST_ID, HIGHEST_ID)
+        self.message_id = randint(LOWEST_ID, HIGHEST_ID)
         self.current_fragment = 0
 
     def get_init_fragment(self):
@@ -293,7 +300,7 @@ class FragmentGenerator:
             padding_len = 0
             padding_bytes = bytes()
 
-        fragment = i2b(self.packet_id, FRAG_ID_SIZE) + i2b(frag_byte, FRAG_FLAG_SIZE)
+        fragment = i2b(self.message_id, FRAG_ID_SIZE) + i2b(frag_byte, FRAG_FLAG_SIZE)
 
         fragment += padding_bytes
 

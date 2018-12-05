@@ -8,6 +8,7 @@ FRAG_HEADER_SIZE: int
 MAX_FRAG_COUNT: int
 HIGHEST_ID: int
 LOWEST_ID: int
+FRAG_SIZE: int
 DATA_PACKET_SIZE: int
 
 def make_fragments(packet: bytes) -> List[bytearray]: ...
@@ -27,7 +28,6 @@ class MixMessage:
     fragments: Dict[int, bytes]
     id: int
     frag_count: int
-    pad_size: int
     payload_size: int
     def __init__(self, msg_id: int) -> None: ...
     def add_fragment(self, frag_index: int, payload: bytes) -> None: ...
@@ -43,7 +43,7 @@ PADDING_SIZE: int
 def how_many_padding_bytes_necessary(padding_len: int) -> int: ...
 def bytes_to_padding_length(padding_bytes: bytes) -> int: ...
 def padding_length_to_bytes(padding_length: int) -> Tuple[bytes, int]: ...
-def parse_fragment(fragment: bytes) -> None: ...
+def parse_fragment(fragment: bytes) -> Tuple[int, bool, int, bytes]: ...
 
 class FragmentGenerator:
     data_payload_limit = ClassVar[int]
@@ -54,7 +54,7 @@ class FragmentGenerator:
     PADDING_BITMASK: ClassVar[int]
 
     udp_payload: bytes
-    packet_id: int
+    message_id: int
     current_fragment: int
 
     def __init__(self, udp_payload: bytes) -> None: ...
