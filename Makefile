@@ -30,3 +30,9 @@ delay-test: chain test-delay stop
 
 test-delay:
 	bash tests/Delay-Jitter-Test.sh
+
+
+.PHONY: function-test
+function-test:
+	PYTHONPATH="." tests/MixMessage_test.py
+
