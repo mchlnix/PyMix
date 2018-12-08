@@ -35,4 +35,5 @@ test-delay:
 .PHONY: function-test
 function-test:
 	PYTHONPATH="." tests/MixMessage_test.py
+	PYTHONPATH="." ./util_tests.py
 

@@ -115,7 +115,3 @@ assert len(fragment) == FRAG_PAYLOAD_SIZE + FRAG_ID_SIZE + FRAG_FLAG_SIZE
 
 
 print("\rSuccess - get_data_fragment")
-
-
-
-

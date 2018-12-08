@@ -194,13 +194,13 @@ def link_encrypt(key, link_ctr, plain_txt):
     msg_type, chan_id, ctr_prefix, payload = cut(
         plain_txt, FLAG_LEN, CHAN_ID_SIZE, CTR_PREFIX_LEN)
 
-    reserved = msg_type + get_random_bytes(RESERVED_LEN - FLAG_LEN)
+    reserved = get_random_bytes(RESERVED_LEN)
 
     # use all 0s as link key, since they can not be exchanged yet
     cipher = gcm_cipher(key, link_ctr)
 
     # ctr encrypt the header with a random link counter prefix
-    header, mac = cipher.encrypt_and_digest(chan_id + ctr_prefix + reserved)
+    header, mac = cipher.encrypt_and_digest(chan_id + ctr_prefix + msg_type + reserved)
 
     return i2b(link_ctr, CTR_PREFIX_LEN) + header + mac + payload
 
