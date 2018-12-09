@@ -15,7 +15,6 @@ class LinkEncryptor:
 class LinkDecryptor:
     def __init__(self, link_key):
         self.key = link_key
-        self.counter = LINK_CTR_START
         self.replay_window = [LINK_CTR_START] * REPLAY_WINDOW_SIZE
 
     def decrypt(self, cipher_text):
