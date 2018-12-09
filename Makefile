@@ -33,7 +33,7 @@ test-delay:
 
 
 .PHONY: function-test
+function-test: export PYTHONPATH=.
 function-test:
-	PYTHONPATH="." tests/MixMessage_test.py
-	PYTHONPATH="." ./util_tests.py
+	py.test tests/*_test.py util_tests.py
 
