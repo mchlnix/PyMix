@@ -1,9 +1,9 @@
 #!/usr/bin/python3
 
 from MixMessage import FragmentGenerator, padding_length_to_bytes, how_many_padding_bytes_necessary, FRAG_FLAG_SIZE, \
-    FRAG_ID_SIZE
+    FRAG_ID_SIZE, bytes_to_padding_length, make_dummy_data_fragment, make_dummy_init_fragment, parse_fragment
 from MsgV3 import process, params, gen_init_msg
-from constants import FRAG_PAYLOAD_SIZE
+from constants import FRAG_PAYLOAD_SIZE, INIT_OVERHEAD, DATA_OVERHEAD
 from util import i2b, b2i, cut, get_random_bytes, gen_sym_key
 
 assert 1 == how_many_padding_bytes_necessary(1) == how_many_padding_bytes_necessary(2**7)
@@ -36,6 +36,19 @@ except AssertionError as ae:
     raise ae
 
 print("\rSuccess - padding_length_to_bytes                              ")
+
+for padding, padding_bytes in paddings.items():
+    if padding <= 0:
+        continue
+
+    padding_read, bytes_read = bytes_to_padding_length(padding_bytes)
+
+    print("\rPadding bytes", bytes_read, "were", padding_read, end="")
+
+    assert len(padding_bytes) == bytes_read
+    assert padding == padding_read + bytes_read
+
+print("\rSuccess - bytes_to_padding:length")
 
 # MsgV3 format
 
@@ -115,3 +128,79 @@ assert len(fragment) == FRAG_PAYLOAD_SIZE + FRAG_ID_SIZE + FRAG_FLAG_SIZE
 
 
 print("\rSuccess - get_data_fragment")
+
+udp_payload = get_random_bytes(120)
+
+f = FragmentGenerator(udp_payload)
+
+fragment = f.get_data_fragment()
+
+msg_id, is_last, fragment_id, payload = parse_fragment(fragment)
+
+assert msg_id == f.message_id
+assert is_last
+assert fragment_id == 0
+assert udp_payload == payload
+
+udp_payload = get_random_bytes(400)
+fragmented_payload = bytes()
+
+f = FragmentGenerator(udp_payload)
+
+fragment = f.get_data_fragment()
+
+msg_id, is_last, fragment_id, payload = parse_fragment(fragment)
+
+fragmented_payload += payload
+
+assert msg_id == f.message_id
+assert not is_last
+assert fragment_id == 0
+
+fragment = f.get_data_fragment()
+
+msg_id, is_last, fragment_id, payload = parse_fragment(fragment)
+
+fragmented_payload += payload
+
+assert msg_id == f.message_id
+assert is_last
+assert fragment_id == 1
+assert udp_payload == fragmented_payload
+
+udp_payload = get_random_bytes(120)
+
+f = FragmentGenerator(udp_payload)
+
+fragment = f.get_init_fragment()
+
+msg_id, is_last, fragment_id, payload = parse_fragment(fragment)
+
+assert msg_id == f.message_id
+assert is_last
+assert fragment_id == 0
+assert udp_payload == payload
+
+print("\rSuccess - parse_fragment")
+
+fragment = make_dummy_data_fragment()
+
+msg_id, is_last, fragment_id, payload = parse_fragment(fragment)
+
+assert msg_id == 0
+assert fragment_id == 0
+assert is_last
+assert payload == bytes()
+
+print("\rSuccess - make_dummy_data_fragment")
+
+fragment = make_dummy_init_fragment()
+
+msg_id, is_last, fragment_id, payload = parse_fragment(fragment)
+
+assert msg_id == 0
+assert fragment_id == 0
+assert is_last
+assert payload == bytes()
+
+print("\rSuccess - make_dummy_init_fragment")
