@@ -4,6 +4,7 @@ from Types import AddressTuple
 from petlib.bn import Bn
 from petlib.ec import EcPt
 
+from LinkEncryption import LinkEncryptor, LinkDecryptor
 from MixMessage import MixMessage, MixMessageStore
 
 
@@ -15,8 +16,8 @@ class EntryPoint:
     pub_comps: List[EcPt]
     socket: socket
 
-    link_counter: int
-    replay_window: List[int]
+    link_decryptor: LinkDecryptor
+    link_encryptor: LinkEncryptor
 
     def __init__(self, listen_addr: AddressTuple, addr_to_mix: AddressTuple): ...
     def set_keys(self, keys: List[Bn]) -> None: ...
