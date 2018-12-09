@@ -1,8 +1,10 @@
 from socket import socket
-from typing import Any, List
+from typing import Any
 
 from Types import AddressTuple
 from petlib.bn import Bn
+
+from LinkEncryption import LinkEncryptor, LinkDecryptor
 
 STORE_LIMIT: int
 
@@ -13,10 +15,10 @@ class Mix:
     next_addr: AddressTuple
     mix_addr: AddressTuple
 
-    req_link_counter: int
-    res_link_counter: int
-    req_replay_window: List[int]
-    res_replay_window: List[int]
+    request_link_encryptor: LinkEncryptor
+    response_link_encryptor: LinkEncryptor
+    request_link_decryptor: LinkDecryptor
+    response_link_decryptor: LinkDecryptor
 
     def get_outgoing_chan_id(self, in_chan_id: int) -> int: ...
     def handle_mix_fragment(self, payload: bytes) -> None: ...
