@@ -113,13 +113,15 @@ class EntryPoint:
 
                 if channel.allowed_to_send:
                     while len(channel.packets) > 0:
-                        cipher = self.link_encryptor.encrypt(channel.get_data_message())
+                        data_message = channel.get_data_message()
+                        cipher = self.link_encryptor.encrypt(data_message)
 
                         self.socket.sendto(cipher, mix_addr)
 
                     channel.packets.clear()
                 else:
-                    cipher = self.link_encryptor.encrypt(channel.chan_init_msg())
+                    init_message = channel.chan_init_msg()
+                    cipher = self.link_encryptor.encrypt(init_message)
 
                     self.socket.sendto(cipher, mix_addr)
 
