@@ -6,7 +6,7 @@ from petlib.bn import Bn
 from petlib.ec import EcPt
 from sphinxmix import SphinxParams
 
-from MixMessage import MixMessage, MixMessageStore
+from MixMessage import MixMessage, MixMessageStore, FragmentGenerator
 from Types import AddressTuple
 
 params: SphinxParams
@@ -21,16 +21,20 @@ class ChannelEntry:
     src_addr: AddressTuple
     dest_addr: AddressTuple
     chan_id: int
+    b_chan_id: bytes
 
     pub_comps: List[EcPt]
     sym_keys: List[bytes]
 
-    packets: List[bytes]
+    packets: List[FragmentGenerator]
     mix_msg_store: MixMessageStore
     allowed_to_send: bool
 
     def __init__(self, src_addr: AddressTuple, dest_addr: AddressTuple, pub_comps: List[EcPt]) -> None: ...
     def chan_init_msg(self) -> bytes: ...
+    def get_init_fragment(self) -> bytes: ...
+    def get_data_fragment(self) -> bytes: ...
+    def clean_generator_list(self): -> None: ...
     def chan_confirm_msg(self) -> None: ...
     def make_request_fragments(self, request: bytes) -> None: ...
     def recv_response_fragment(self, response: bytes) -> None: ...

@@ -117,9 +117,9 @@ class EntryPoint:
             for channel in ChannelEntry.table.values():
 
                 if channel.allowed_to_send:
-                    for packet in channel.packets:
+                    while len(channel.packets) > 0:
                         self.link_counter += 1
-                        cipher = link_encrypt(bytes(SYM_KEY_LEN), self.link_counter, packet)
+                        cipher = link_encrypt(bytes(SYM_KEY_LEN), self.link_counter, channel.get_data_message())
 
                         self.socket.sendto(cipher, mix_addr)
 

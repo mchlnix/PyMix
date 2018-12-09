@@ -31,7 +31,7 @@ if __name__ == "__main__":
     for payload in requests:
         dest_port = choice(dest_ports)
 
-        print("Sending to", dest_port)
+        print("Sending", payload.encode("utf-8"), "to", dest_port, "len:", len(payload.encode("utf-8")))
         sock.sendto(header(ip, dest_port) + payload.encode("utf-8"),
                     entry_addr)
 

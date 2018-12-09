@@ -1,7 +1,7 @@
 import math
 from random import randint
 
-from constants import CTR_PREFIX_LEN, MIX_COUNT, FRAG_PAYLOAD_SIZE, INIT_OVERHEAD, DATA_OVERHEAD
+from constants import FRAG_PAYLOAD_SIZE, INIT_OVERHEAD, DATA_OVERHEAD
 from util import b2i, i2b, get_random_bytes, cut
 from util import padded, partitions as fragments, partitioned as fragmented
 
@@ -24,7 +24,8 @@ FRAG_COUNT_SIZE = 1
 FRAG_INDEX_SIZE = FRAG_COUNT_SIZE  # have to stay equal size
 FRAG_PADDING_SIZE = 2
 
-FRAG_HEADER_SIZE = FRAG_ID_SIZE + FRAG_COUNT_SIZE + FRAG_INDEX_SIZE + FRAG_PADDING_SIZE
+FRAG_FLAG_SIZE = 1
+FRAG_HEADER_SIZE = FRAG_ID_SIZE + FRAG_FLAG_SIZE
 
 MAX_FRAG_COUNT = 2 ** (FRAG_COUNT_SIZE * 8) - 1
 
@@ -33,7 +34,8 @@ LOWEST_ID = 1
 
 FRAG_SIZE = FRAG_HEADER_SIZE + FRAG_PAYLOAD_SIZE
 
-DATA_PACKET_SIZE = (MIX_COUNT-1) * CTR_PREFIX_LEN + FRAG_HEADER_SIZE + FRAG_PAYLOAD_SIZE
+DATA_PACKET_SIZE = DATA_OVERHEAD + FRAG_SIZE
+INIT_PACKET_SIZE = INIT_OVERHEAD + FRAG_SIZE
 
 
 def make_fragments(packet):
@@ -84,6 +86,9 @@ class MixMessageStore:
 
     def parse_fragment(self, raw_frag):
         msg_id, is_last, fragment_id, payload = parse_fragment(raw_frag)
+
+        if len(payload) <= 0:
+            raise ValueError("No payload bytes transmitted. Probably dummy traffic.")
 
         if msg_id in self.packets:
             packet = self.packets[msg_id]
@@ -145,8 +150,8 @@ class MixMessage:
     def payload(self):
         payload = bytes()
         if self.complete:
-            for i in range(1, self.frag_count+1):
-                payload += self.fragments[i]
+            for key in range(0, len(self.fragments)):
+                payload += self.fragments[key]
 
         return payload
 
@@ -164,7 +169,6 @@ class MixMessage:
         return ret
 
 
-FRAG_FLAG_SIZE = 1
 PADDING_SIZE = 2
 
 
@@ -223,39 +227,65 @@ def padding_length_to_bytes(padding_len):
 def parse_fragment(fragment):
     msg_id, frag_byte, rest = cut(fragment, FRAG_ID_SIZE, FRAG_FLAG_SIZE)
 
-    print("MixMessage id is:", b2i(msg_id))
-
     i_frag_byte = b2i(frag_byte)
 
     fragment_id = i_frag_byte & 0b0011_1111
 
-    print("Fragment id is:", fragment_id)
-
-    is_last = i_frag_byte & FragmentGenerator.LAST_FRAG_FLAG
-
-    if is_last:
-        print("Fragment is the last fragment.")
+    is_last = (i_frag_byte & FragmentGenerator.LAST_FRAG_FLAG) == FragmentGenerator.LAST_FRAG_FLAG
 
     payload_len = len(rest)
 
-    has_padding = i_frag_byte & FragmentGenerator.PADDING_FLAG
+    has_padding = (i_frag_byte & FragmentGenerator.PADDING_FLAG) == FragmentGenerator.PADDING_FLAG
 
     if has_padding:
         padding_len, padding_bytes = bytes_to_padding_length(rest)
 
-        print("Fragment has a padding length field of size", padding_bytes, "bytes.")
-
-        print("Fragment has", padding_len, "padding bytes.")
-
         payload_len -= (padding_len + padding_bytes)
 
-        payload, padding = cut(rest, payload_len)
+        padding_bytes, payload, padding = cut(rest, padding_bytes, payload_len)
     else:
         payload = rest
 
-    print("Fragment has", payload_len, " payload bytes.")
-
     return b2i(msg_id), is_last, fragment_id, payload
+
+
+def make_fragment(message_id, fragment_number, last_fragment, payload, payload_limit):
+    if fragment_number > 0b0011_1111:
+        raise ValueError("Too many fragments needed for this payload.")
+
+    #if len(payload) == 0:
+     #   raise ValueError("No more fragments left to generate.")
+
+    frag_byte = fragment_number
+
+    if last_fragment:
+        frag_byte |= FragmentGenerator.LAST_FRAG_FLAG
+
+    if len(payload) < payload_limit:
+        frag_byte |= FragmentGenerator.PADDING_FLAG
+
+        padding_bytes, padding_len = padding_length_to_bytes(payload_limit - len(payload))
+    else:
+        padding_len = 0
+        padding_bytes = bytes()
+
+    fragment = i2b(message_id, FRAG_ID_SIZE) + i2b(frag_byte, FRAG_FLAG_SIZE)
+
+    fragment += padding_bytes
+
+    fragment += payload[:payload_limit] + get_random_bytes(padding_len)
+
+    return fragment
+
+
+def make_dummy_data_fragment():
+    return make_fragment(0x0, 0x0, True, bytes(0),
+                         FragmentGenerator.data_payload_limit)
+
+
+def make_dummy_init_fragment():
+    return make_fragment(0x0, 0x0, True, bytes(0),
+                         FragmentGenerator.init_payload_limit)
 
 
 class FragmentGenerator:
@@ -279,36 +309,14 @@ class FragmentGenerator:
         return self._build_fragment(FragmentGenerator.data_payload_limit)
 
     def _build_fragment(self, payload_limit):
-        if self.current_fragment > 0b0011_1111:
-            raise ValueError("Too many fragments needed for this payload.")
+        is_last_fragment = len(self.udp_payload) <= payload_limit
 
-        if len(self.udp_payload) == 0:
-            raise ValueError("No more fragments left to generate.")
+        payload, self.udp_payload = cut(self.udp_payload, payload_limit)
 
-        frag_byte = self.current_fragment
-
+        fragment_number = self.current_fragment
         self.current_fragment += 1
 
-        if len(self.udp_payload) <= payload_limit:
-            frag_byte |= FragmentGenerator.LAST_FRAG_FLAG
-
-        if len(self.udp_payload) < payload_limit:
-            frag_byte |= FragmentGenerator.PADDING_FLAG
-
-            padding_bytes, padding_len = padding_length_to_bytes(payload_limit - len(self.udp_payload))
-        else:
-            padding_len = 0
-            padding_bytes = bytes()
-
-        fragment = i2b(self.message_id, FRAG_ID_SIZE) + i2b(frag_byte, FRAG_FLAG_SIZE)
-
-        fragment += padding_bytes
-
-        fragment += self.udp_payload[:payload_limit] + get_random_bytes(padding_len)
-
-        self.udp_payload = self.udp_payload[payload_limit:]
-
-        return fragment
+        return make_fragment(self.message_id, fragment_number, is_last_fragment, payload, payload_limit)
 
     def __bool__(self):
         return len(self.udp_payload) > 0

@@ -9,8 +9,8 @@ from selectors import EVENT_READ
 from socket import socket, AF_INET, SOCK_DGRAM as UDP
 
 from UDPChannel import ChannelExit
-from constants import UDP_MTU, SYM_KEY_LEN, CHAN_INIT_MSG_FLAG, REPLAY_WINDOW_SIZE, LINK_CTR_START
-from util import parse_ip_port, link_decrypt, link_encrypt, check_replay_window
+from constants import UDP_MTU, SYM_KEY_LEN, CHAN_INIT_MSG_FLAG, REPLAY_WINDOW_SIZE, LINK_CTR_START, INIT_OVERHEAD
+from util import parse_ip_port, link_decrypt, link_encrypt, check_replay_window, cut
 
 
 class ExitPoint:
@@ -65,6 +65,10 @@ class ExitPoint:
                                 chan_id)
 
                             channel = ChannelExit.table[chan_id]
+
+                            init_overhead, fragment = cut(fragment, INIT_OVERHEAD)
+
+                            channel.recv_request(fragment)
                         else:
                             channel = ChannelExit(chan_id)
 
@@ -78,8 +82,7 @@ class ExitPoint:
                         if chan_id not in ChannelExit.table.keys():
                             raise Exception("Received Data Msg before Channel was established", chan_id)
                         else:
-                            ChannelExit.table[chan_id].recv_request(
-                                msg_ctr + fragment)
+                            ChannelExit.table[chan_id].recv_request(fragment)
 
                 # send responses to mix
                 for packet in ChannelExit.to_mix:

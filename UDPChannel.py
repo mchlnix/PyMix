@@ -2,7 +2,8 @@ from random import randint
 from selectors import DefaultSelector, EVENT_READ
 from socket import socket, AF_INET, SOCK_DGRAM as UDP
 
-from MixMessage import FRAG_SIZE, MixMessageStore, make_fragments, DATA_PACKET_SIZE, FragmentGenerator
+from MixMessage import FRAG_SIZE, MixMessageStore, DATA_PACKET_SIZE, FragmentGenerator, \
+    make_dummy_init_fragment, make_dummy_data_fragment
 from MsgV3 import gen_init_msg, process
 from constants import CHAN_ID_SIZE, MIN_PORT, MAX_PORT, UDP_MTU, \
     CTR_PREFIX_LEN, \
@@ -22,6 +23,7 @@ class ChannelEntry:
         self.src_addr = src_addr
         self.dest_addr = dest_addr
         self.chan_id = ChannelEntry.random_channel()
+        self.b_chan_id = i2b(self.chan_id, CHAN_ID_SIZE)
 
         self.pub_comps = pub_comps
 
@@ -50,14 +52,44 @@ class ChannelEntry:
         # destination of the channel and the sym key for the last mix
         destination = ip2b(ip) + i2b(port, PORT_LEN)
 
-        chan_init = gen_init_msg(self.pub_comps, self.sym_keys, destination)
-
-        print("Len init:", len(chan_init))
+        fragment = self.get_init_fragment()
+        chan_init = gen_init_msg(self.pub_comps, self.sym_keys, destination + fragment)
 
         # we add a random ctr prefix, because the link encryption expects there
         # to be one, even though the channel init wasn't sym encrypted
-        return CHAN_INIT_MSG_FLAG + i2b(self.chan_id, CHAN_ID_SIZE) + get_random_bytes(
+        return CHAN_INIT_MSG_FLAG + self.b_chan_id + get_random_bytes(
             CTR_PREFIX_LEN) + chan_init
+
+    def get_data_message(self):
+        # todo make into generator
+        return DATA_MSG_FLAG + self.b_chan_id + get_random_bytes(CTR_PREFIX_LEN) + self.get_data_fragment()
+
+    def get_init_fragment(self):
+        # todo make into generator
+        self.clean_generator_list()
+
+        if self.packets:
+            return self.packets[0].get_init_fragment()
+
+        return make_dummy_init_fragment()
+
+    def get_data_fragment(self):
+        # todo make into generator
+        self.clean_generator_list()
+
+        if self.packets:
+            return self.packets[0].get_data_fragment()
+        else:
+            return make_dummy_data_fragment()
+
+    def clean_generator_list(self):
+        delete = []
+        for i in range(len(self.packets)):
+            if not self.packets[i]:
+                delete.append(i)
+
+        for generator in reversed(delete):
+            del self.packets[generator]
 
     def chan_confirm_msg(self):
         if not self.allowed_to_send:
@@ -66,23 +98,17 @@ class ChannelEntry:
         self.allowed_to_send = True
 
     def make_request_fragments(self, request):
-        packet = []
-        for fragment in make_fragments(request):
-            packet = self.encrypt_fragment(fragment)
+        generator = FragmentGenerator(request)
 
-            self.packets.append(
-                DATA_MSG_FLAG + i2b(self.chan_id, CHAN_ID_SIZE) + packet)
-
-        print(self.src_addr, "->", self.chan_id, "len:", len(request), "->",
-              len(packet))
+        self.packets.append(generator)
 
     def recv_response_fragment(self, response):
         fragment = self.decrypt_fragment(response)
 
-        # the endpoint adds a ctr prefix of zeroes, which we need to get rid of
-        _, fragment = cut(fragment, CTR_PREFIX_LEN)
-
-        self.mix_msg_store.parse_fragment(fragment)
+        try:
+            self.mix_msg_store.parse_fragment(fragment)
+        except ValueError:
+            return
 
     def get_completed_responses(self):
         packets = self.mix_msg_store.completed()
@@ -249,7 +275,10 @@ class ChannelExit:
         """
         fragment, _ = cut(request, FRAG_SIZE)  # cut off any padding
 
-        self.mix_msg_store.parse_fragment(fragment)
+        try:
+            self.mix_msg_store.parse_fragment(fragment)
+        except ValueError:
+            return
 
         # send completed mix messages to the destination immediately
         for mix_message in self.mix_msg_store.completed():
@@ -264,20 +293,20 @@ class ChannelExit:
         """
         data = self.out_sock.recv(UDP_MTU)
 
-        mix_frags = make_fragments(data)
+        frag_gen = FragmentGenerator(data)
 
-        for frag in mix_frags:
-            packet = padded(frag, DATA_PACKET_SIZE)
+        while frag_gen:
+            fragment = frag_gen.get_data_fragment()
+            packet = padded(fragment, DATA_PACKET_SIZE)
 
             print("data", self.in_chan_id, "<-", self.dest_addr, "len:", len(packet))
 
-            ChannelExit.to_mix.append(DATA_MSG_FLAG + i2b(self.in_chan_id, CHAN_ID_SIZE) + bytes(CTR_PREFIX_LEN) +
-                                      packet)
+            ChannelExit.to_mix.append(DATA_MSG_FLAG + i2b(self.in_chan_id, CHAN_ID_SIZE) + packet)
 
     def parse_channel_init(self, channel_init):
         _, _, payload = cut(channel_init, 29, 48)
 
-        ip, port, _ = cut(payload, IPV4_LEN, PORT_LEN)
+        ip, port, fragment = cut(payload, IPV4_LEN, PORT_LEN)
 
         ip = b2ip(ip)
         port = b2i(port)
@@ -291,10 +320,13 @@ class ChannelExit:
             print("Couldn't connect to destination. Dropped message.")
             self.out_sock.close()
             del ChannelExit.table[self.in_chan_id]
+
             return
 
         ChannelExit.sock_sel.register(self.out_sock, EVENT_READ, data=self)
         print("init", self.in_chan_id, "->", self.dest_addr, "len:", len(channel_init))
+
+        self.recv_request(fragment)
 
     def send_chan_confirm(self):
         print("init", self.in_chan_id, "<-", self.dest_addr, "len:", DATA_PACKET_SIZE)
