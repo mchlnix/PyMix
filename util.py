@@ -172,6 +172,7 @@ def gen_sym_key():
     return get_random_bytes(SYM_KEY_LEN)
 
 
+# todo better return bytes?
 def gen_ctr_prefix():
     return b2i(get_random_bytes(CTR_PREFIX_LEN))
 
