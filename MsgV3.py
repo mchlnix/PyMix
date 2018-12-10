@@ -1,7 +1,7 @@
 from petlib.ec import EcPt
 from sphinxmix.SphinxParams import SphinxParams
 
-from constants import SYM_KEY_LEN, MIX_COUNT
+from constants import SYM_KEY_LEN, MIX_COUNT, GROUP_ELEMENT_LEN
 from util import ctr_cipher, cut, gen_sym_key
 
 params = SphinxParams()
@@ -55,18 +55,14 @@ def gen_blind(secret):
 
 
 def process(priv_mix_key, message):
-    # first stage
+    y_msg, chan_key_onion, payload_onion = cut_init_message(message)
 
-    b_y_msg, chan_key_onion, payload_onion = cut(message, 29, MIX_COUNT * SYM_KEY_LEN)
-
-    y_msg = EcPt.from_binary(b_y_msg, params.group.G)
     k_disp = params.group.expon(y_msg, [priv_mix_key])
 
     cipher = ctr_cipher(params.get_aes_key(k_disp), 0)
 
     k_chan, chan_key_onion = cut(cipher.decrypt(chan_key_onion), SYM_KEY_LEN)
 
-    # pad onion
     chan_key_onion += gen_sym_key()
 
     payload_onion = cipher.decrypt(payload_onion)
@@ -77,3 +73,9 @@ def process(priv_mix_key, message):
     message = y_msg_2.export() + chan_key_onion + payload_onion
 
     return k_chan, payload_onion, message
+
+
+def cut_init_message(message):
+    group_element, channel_key_onion, payload_onion = cut(message, GROUP_ELEMENT_LEN, MIX_COUNT * SYM_KEY_LEN)
+
+    return EcPt.from_binary(group_element, params.group.G), channel_key_onion, payload_onion
