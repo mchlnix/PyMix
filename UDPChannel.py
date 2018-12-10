@@ -2,6 +2,7 @@ from random import randint
 from selectors import DefaultSelector, EVENT_READ
 from socket import socket, AF_INET, SOCK_DGRAM as UDP
 
+from Counter import Counter
 from MixMessage import DATA_FRAG_SIZE, MixMessageStore, DATA_PACKET_SIZE, FragmentGenerator, \
     make_dummy_init_fragment, make_dummy_data_fragment
 from MsgV3 import gen_init_msg, process
@@ -33,7 +34,7 @@ class ChannelEntry:
         ChannelEntry.table[self.chan_id] = self
 
         self.sym_keys = []
-        self.request_counter = CHANNEL_CTR_START
+        self.request_counter = Counter(CHANNEL_CTR_START)
         self.replay_detector = ReplayDetector(start=CHANNEL_CTR_START)
 
         for _ in self.pub_comps:
@@ -50,6 +51,8 @@ class ChannelEntry:
         asymmetric keys in the future. These will be used to encrypt the
         channel init message and the channel keys that the client decided on.
         """
+        self.request_counter.next()
+
         ip, port = self.dest_addr
 
         # destination of the channel and the sym key for the last mix
@@ -134,14 +137,14 @@ class ChannelEntry:
         return packets
 
     def encrypt_fragment(self, fragment):
+        self.request_counter.next()
+
         for key in reversed(self.sym_keys):
             counter = self.request_counter
 
-            cipher = ctr_cipher(key, counter)
+            cipher = ctr_cipher(key, int(counter))
 
-            fragment = i2b(counter, CTR_PREFIX_LEN) + cipher.encrypt(fragment)
-
-        self.request_counter += 1
+            fragment = bytes(counter) + cipher.encrypt(fragment)
 
         return fragment
 
@@ -194,7 +197,7 @@ class ChannelMid:
         self.request_replay_detector = ReplayDetector(start=CHANNEL_CTR_START)
         self.response_replay_detector = ReplayDetector(start=CHANNEL_CTR_START)
 
-        self.response_counter = CHANNEL_CTR_START
+        self.response_counter = Counter(CHANNEL_CTR_START)
 
         self.initialized = False
 
@@ -225,11 +228,11 @@ class ChannelMid:
         if msg_ctr != bytes(CTR_PREFIX_LEN):
             self.response_replay_detector.check_replay_window(b2i(msg_ctr))
 
-        self.response_counter += 1
+        self.response_counter.next()
 
-        cipher = ctr_cipher(self.key, self.response_counter)
+        cipher = ctr_cipher(self.key, int(self.response_counter))
 
-        forward_msg = i2b(self.response_counter, CTR_PREFIX_LEN) + cipher.encrypt(response)
+        forward_msg = bytes(self.response_counter) + cipher.encrypt(response)
 
         response = msg_type + i2b(self.in_chan_id, CHAN_ID_SIZE) + forward_msg
 

@@ -1,15 +1,16 @@
+from Counter import Counter
 from ReplayDetection import ReplayDetector
 from constants import LINK_CTR_START, CTR_PREFIX_LEN, LINK_HEADER_LEN, GCM_MAC_LEN, CHAN_ID_SIZE, FLAG_LEN, RESERVED_LEN
-from util import cut, gcm_cipher, b2i, get_random_bytes, i2b
+from util import cut, gcm_cipher, b2i, get_random_bytes
 
 
 class LinkEncryptor:
     def __init__(self, link_key):
         self.key = link_key
-        self.counter = LINK_CTR_START
+        self.counter = Counter(LINK_CTR_START)
 
     def encrypt(self, plain_text):
-        self.counter += 1
+        self.counter.next()
 
         msg_type, chan_id, ctr_prefix, payload = cut(
             plain_text, FLAG_LEN, CHAN_ID_SIZE, CTR_PREFIX_LEN)
@@ -17,12 +18,12 @@ class LinkEncryptor:
         reserved = get_random_bytes(RESERVED_LEN)
 
         # use all 0s as link key, since they can not be exchanged yet
-        cipher = gcm_cipher(self.key, self.counter)
+        cipher = gcm_cipher(self.key, int(self.counter))
 
         # ctr encrypt the header with a random link counter prefix
         header, mac = cipher.encrypt_and_digest(chan_id + ctr_prefix + msg_type + reserved)
 
-        return i2b(self.counter, CTR_PREFIX_LEN) + header + mac + payload
+        return bytes(self.counter) + header + mac + payload
 
 
 class LinkDecryptor:

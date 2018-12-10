@@ -6,6 +6,7 @@ from petlib.bn import Bn
 from petlib.ec import EcPt
 from sphinxmix import SphinxParams
 
+from Counter import Counter
 from MixMessage import MixMessage, MixMessageStore, FragmentGenerator
 from Types import AddressTuple
 
@@ -27,7 +28,7 @@ class ChannelEntry:
 
     pub_comps: List[EcPt]
     sym_keys: List[bytes]
-    request_counter: int
+    request_counter: Counter
     replay_detector: ReplayDetector
 
     packets: List[FragmentGenerator]
@@ -65,7 +66,7 @@ class ChannelMid:
     request_replay_detector: ReplayDetector
     response_replay_detector: ReplayDetector
 
-    response_counter: int
+    response_counter: Counter
 
     initialized: bool
 

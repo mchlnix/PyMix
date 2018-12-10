@@ -1,11 +1,12 @@
 from typing import Tuple
 
+from Counter import Counter
 from ReplayDetection import ReplayDetector
 
 
 class LinkEncryptor:
     key: bytes
-    counter: int
+    counter: Counter
 
     def __init__(self, link_key: bytes) -> None: ...
     def encrypt(self, plain_text: bytes) -> bytes: ...
