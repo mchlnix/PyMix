@@ -3,7 +3,6 @@ from random import randint
 
 from constants import FRAG_PAYLOAD_SIZE, INIT_OVERHEAD, DATA_OVERHEAD
 from util import b2i, i2b, get_random_bytes, cut
-from util import padded, partitions as fragments, partitioned as fragmented
 
 #########################################
 # MixMessage Fragment Format            #
@@ -36,48 +35,6 @@ FRAG_SIZE = FRAG_HEADER_SIZE + FRAG_PAYLOAD_SIZE
 
 DATA_PACKET_SIZE = DATA_OVERHEAD + FRAG_SIZE
 INIT_PACKET_SIZE = INIT_OVERHEAD + FRAG_SIZE
-
-
-def make_fragments(packet):
-    # how many fragments will be necessary
-    frag_count = fragments(packet, FRAG_PAYLOAD_SIZE)
-
-    if frag_count > MAX_FRAG_COUNT:
-        raise IndexError("Message too large.", frag_count,
-                         "fragments necessary, limit is", MAX_FRAG_COUNT)
-
-    # how many padding bytes will be necessary
-    pad_len = 0
-
-    if (len(packet) % FRAG_PAYLOAD_SIZE) != 0:
-        old_len = len(packet)
-        packet = padded(packet, blocksize=FRAG_PAYLOAD_SIZE)
-        pad_len = len(packet) - old_len
-
-    # get a random packet id
-    packet_id = randint(LOWEST_ID, HIGHEST_ID)
-
-    # assemble fragments
-    frags = []
-    for frag_index, fragment in enumerate(fragmented(packet, FRAG_PAYLOAD_SIZE)):
-        frag = []
-        frag += i2b(packet_id, FRAG_ID_SIZE)
-        frag += i2b(frag_count, FRAG_COUNT_SIZE)
-        frag += i2b(frag_index + 1, FRAG_INDEX_SIZE)
-        frag += i2b(pad_len, FRAG_PADDING_SIZE)
-        frag += fragment
-
-        frags.append(bytearray(frag))
-
-    return frags
-
-
-def _read_int(data, start, length):
-    """Reads length bytes from start in data. Returns a tuple of the extracted
-       bytes as an integer and the position where the reading stopped."""
-    stop = start + length
-
-    return b2i(data[start:stop]), stop
 
 
 class MixMessageStore:

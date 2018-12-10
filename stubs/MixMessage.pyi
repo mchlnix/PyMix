@@ -11,9 +11,6 @@ LOWEST_ID: int
 FRAG_SIZE: int
 DATA_PACKET_SIZE: int
 
-def make_fragments(packet: bytes) -> List[bytearray]: ...
-def _read_int(data: bytes, start: int, length: int) -> Tuple[int, int]: ...
-
 class MixMessageStore:
     packets: Dict[int, MixMessage]
 
