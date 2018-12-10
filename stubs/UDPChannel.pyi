@@ -9,6 +9,8 @@ from sphinxmix import SphinxParams
 from MixMessage import MixMessage, MixMessageStore, FragmentGenerator
 from Types import AddressTuple
 
+from ReplayDetection import ReplayDetector
+
 params: SphinxParams
 params_dict: Dict[Tuple[int, int], SphinxParams]
 
@@ -25,6 +27,8 @@ class ChannelEntry:
 
     pub_comps: List[EcPt]
     sym_keys: List[bytes]
+    request_counter: int
+    replay_detector: ReplayDetector
 
     packets: List[FragmentGenerator]
     mix_msg_store: MixMessageStore
@@ -34,7 +38,7 @@ class ChannelEntry:
     def chan_init_msg(self) -> bytes: ...
     def get_init_fragment(self) -> bytes: ...
     def get_data_fragment(self) -> bytes: ...
-    def clean_generator_list(self): -> None: ...
+    def clean_generator_list(self) -> None: ...
     def chan_confirm_msg(self) -> None: ...
     def make_request_fragments(self, request: bytes) -> None: ...
     def recv_response_fragment(self, response: bytes) -> None: ...
@@ -57,6 +61,11 @@ class ChannelMid:
     in_chan_id: int
     out_chan_id: int
     key: bytes
+
+    request_replay_detector: ReplayDetector
+    response_replay_detector: ReplayDetector
+
+    response_counter: int
 
     initialized: bool
 

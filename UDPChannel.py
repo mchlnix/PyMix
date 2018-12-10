@@ -5,11 +5,12 @@ from socket import socket, AF_INET, SOCK_DGRAM as UDP
 from MixMessage import FRAG_SIZE, MixMessageStore, DATA_PACKET_SIZE, FragmentGenerator, \
     make_dummy_init_fragment, make_dummy_data_fragment
 from MsgV3 import gen_init_msg, process
+from ReplayDetection import ReplayDetector
 from constants import CHAN_ID_SIZE, MIN_PORT, MAX_PORT, UDP_MTU, \
     CTR_PREFIX_LEN, \
     CTR_MODE_PADDING, IPV4_LEN, PORT_LEN, CHAN_INIT_MSG_FLAG, DATA_MSG_FLAG, \
-    CHAN_CONFIRM_MSG_FLAG, FLAG_LEN, MIX_COUNT
-from util import i2b, b2i, random_channel_id, cut, b2ip, gen_ctr_prefix, gen_sym_key, ctr_cipher, \
+    CHAN_CONFIRM_MSG_FLAG, FLAG_LEN, MIX_COUNT, CHANNEL_CTR_START
+from util import i2b, b2i, random_channel_id, cut, b2ip, gen_sym_key, ctr_cipher, \
     get_random_bytes, ip2b
 
 
@@ -32,6 +33,8 @@ class ChannelEntry:
         ChannelEntry.table[self.chan_id] = self
 
         self.sym_keys = []
+        self.request_counter = CHANNEL_CTR_START
+        self.replay_detector = ReplayDetector(start=CHANNEL_CTR_START)
 
         for _ in self.pub_comps:
             self.sym_keys.append(gen_sym_key())
@@ -132,21 +135,29 @@ class ChannelEntry:
 
     def encrypt_fragment(self, fragment):
         for key in reversed(self.sym_keys):
-            counter = gen_ctr_prefix()
+            counter = self.request_counter
 
             cipher = ctr_cipher(key, counter)
 
             fragment = i2b(counter, CTR_PREFIX_LEN) + cipher.encrypt(fragment)
 
+        self.request_counter += 1
+
         return fragment
 
     def decrypt_fragment(self, fragment):
+        ctr = 0
+
         for key in self.sym_keys:
             ctr, cipher_text = cut(fragment, CTR_PREFIX_LEN)
 
-            cipher = ctr_cipher(key, b2i(ctr))
+            ctr = b2i(ctr)
+
+            cipher = ctr_cipher(key, ctr)
 
             fragment = cipher.decrypt(cipher_text)
+
+        self.replay_detector.check_replay_window(ctr)
 
         return fragment
 
@@ -180,6 +191,10 @@ class ChannelMid:
         ChannelMid.table_in[self.in_chan_id] = self
 
         self.key = None
+        self.request_replay_detector = ReplayDetector(start=CHANNEL_CTR_START)
+        self.response_replay_detector = ReplayDetector(start=CHANNEL_CTR_START)
+
+        self.response_counter = CHANNEL_CTR_START
 
         self.initialized = False
 
@@ -187,6 +202,8 @@ class ChannelMid:
         """Takes a mix fragment, already stripped of the channel id."""
         ctr, cipher_text = cut(request, CTR_PREFIX_LEN)
         ctr = b2i(ctr)
+
+        self.request_replay_detector.check_replay_window(ctr)
 
         cipher = ctr_cipher(self.key, ctr)
 
@@ -202,31 +219,23 @@ class ChannelMid:
 
         msg_type, response = cut(response, FLAG_LEN)
 
-        counter = gen_ctr_prefix()
-        cipher = ctr_cipher(self.key, counter)
+        msg_ctr, _ = cut(response, CTR_PREFIX_LEN)
 
-        forward_msg = i2b(counter, CTR_PREFIX_LEN) + cipher.encrypt(response)
+        # todo find better way
+        if msg_ctr != bytes(CTR_PREFIX_LEN):
+            self.response_replay_detector.check_replay_window(b2i(msg_ctr))
+
+        self.response_counter += 1
+
+        cipher = ctr_cipher(self.key, self.response_counter)
+
+        forward_msg = i2b(self.response_counter, CTR_PREFIX_LEN) + cipher.encrypt(response)
 
         response = msg_type + i2b(self.in_chan_id, CHAN_ID_SIZE) + forward_msg
 
         print("data", self.in_chan_id, "<-", self.out_chan_id, "len:", len(forward_msg))
 
         ChannelMid.responses.append(response)
-
-    @staticmethod
-    def _check_replay_window(ctr_list, ctr):
-        if ctr in ctr_list:
-            raise Exception("Already seen ctr value", ctr)
-        elif ctr < ctr_list[0]:
-            raise Exception("Ctr value", ctr, "too small")
-
-        ctr_list.append(ctr)
-
-        # remove the smallest element
-        ctr_list.sort()
-        ctr_list.pop(0)
-
-        return True
 
     def parse_channel_init(self, channel_init, priv_comp):
         """Takes an already decrypted channel init message and reads the key.

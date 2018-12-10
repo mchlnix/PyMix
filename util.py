@@ -218,18 +218,3 @@ def link_decrypt(key, cipher_txt):
         plain_header, CHAN_ID_SIZE, CTR_PREFIX_LEN, FLAG_LEN)
 
     return b2i(link_ctr), b2i(chan_id), msg_ctr, fragment, msg_type
-
-
-def check_replay_window(ctr_list, ctr):
-    if ctr in ctr_list:
-        raise Exception("Already seen ctr value", ctr)
-    elif ctr < ctr_list[0]:
-        raise Exception("Ctr value", ctr, "too small")
-
-    ctr_list.append(ctr)
-
-    # remove the smallest element
-    ctr_list.sort()
-    ctr_list.pop(0)
-
-    return True
