@@ -297,7 +297,7 @@ class ChannelExit:
         If the fragment completes the mix message, all completed mix messages
         will be sent out over their sockets.
         """
-        fragment, _ = cut(request, DATA_FRAG_SIZE)  # cut off any padding
+        fragment, random_padding = cut(request, DATA_FRAG_SIZE)
 
         try:
             self.mix_msg_store.parse_fragment(fragment)

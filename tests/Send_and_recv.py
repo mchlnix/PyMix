@@ -1,4 +1,5 @@
 #!/usr/bin/python3
+import time
 from random import randint, choice
 from socket import socket, AF_INET, SOCK_DGRAM as UDP
 
@@ -32,6 +33,7 @@ if __name__ == "__main__":
         dest_port = choice(dest_ports)
 
         print("Sending", payload.encode("utf-8"), "to", dest_port, "len:", len(payload.encode("utf-8")))
+        time.sleep(0.5)
         sock.sendto(header(ip, dest_port) + payload.encode("utf-8"),
                     entry_addr)
 
