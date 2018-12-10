@@ -18,7 +18,7 @@ def test_link_encryption():
 
     chan_id2, msg_ctr2, payload2, msg_type2 = decryptor.decrypt(encrypted)
 
-    assert encryptor.counter in decryptor.replay_window
+    assert encryptor.counter in decryptor.replay_detector
     assert chan_id == chan_id2
     assert msg_ctr == msg_ctr2
     assert payload == payload2
@@ -54,7 +54,7 @@ def test_replay_detection_too_small():
 
         _ = decryptor.decrypt(encrypted)
 
-    assert first_link_counter not in decryptor.replay_window
+    assert first_link_counter not in decryptor.replay_detector.replay_window
 
     try:
         decryptor.decrypt(first_encrypted)

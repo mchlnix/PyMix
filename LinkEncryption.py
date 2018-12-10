@@ -1,5 +1,6 @@
-from constants import LINK_CTR_START, REPLAY_WINDOW_SIZE
-from util import link_encrypt, link_decrypt, check_replay_window
+from ReplayDetection import ReplayDetector
+from constants import LINK_CTR_START
+from util import link_encrypt, link_decrypt
 
 
 class LinkEncryptor:
@@ -15,10 +16,10 @@ class LinkEncryptor:
 class LinkDecryptor:
     def __init__(self, link_key):
         self.key = link_key
-        self.replay_window = [LINK_CTR_START] * REPLAY_WINDOW_SIZE
+        self.replay_detector = ReplayDetector()
 
     def decrypt(self, cipher_text):
         link_ctr, *plain_text = link_decrypt(self.key, cipher_text)
-        check_replay_window(self.replay_window, link_ctr)
+        self.replay_detector.check_replay_window(link_ctr)
 
         return plain_text

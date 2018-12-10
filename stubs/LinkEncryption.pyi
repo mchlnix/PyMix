@@ -1,4 +1,6 @@
-from typing import List, Tuple
+from typing import Tuple
+
+from ReplayDetection import ReplayDetector
 
 
 class LinkEncryptor:
@@ -10,7 +12,7 @@ class LinkEncryptor:
 
 class LinkDecryptor:
     key: bytes
-    replay_window: List[int]
+    replay_detector: ReplayDetector
 
     def __init__(self, link_key: bytes) -> None:...
     def decrypt(self, cipher_text: bytes) -> Tuple[int, bytes, bytes, bytes]: ...
