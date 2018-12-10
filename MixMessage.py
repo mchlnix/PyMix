@@ -1,5 +1,4 @@
 import math
-from random import randint
 
 from constants import DATA_FRAG_PAYLOAD_SIZE, INIT_OVERHEAD, DATA_OVERHEAD, INIT_FRAG_PAYLOAD_SIZE
 from util import b2i, i2b, get_random_bytes, cut
@@ -256,7 +255,10 @@ class FragmentGenerator:
 
     def __init__(self, udp_payload):
         self.udp_payload = udp_payload
-        self.message_id = randint(LOWEST_ID, HIGHEST_ID)
+
+        FragmentGenerator.last_used_message_id += 1
+        self.message_id = FragmentGenerator.last_used_message_id
+
         self.current_fragment = 0
 
     def get_init_fragment(self):
