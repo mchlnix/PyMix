@@ -3,16 +3,17 @@
    builtin functionality, when it was not convenient enough to use."""
 from math import ceil
 
-from Cryptodome.Random.random import randint
 from Cryptodome.Cipher import AES
 from Cryptodome.Random import get_random_bytes
-from Cryptodome.Random.random import shuffle
+from Cryptodome.Random.random import randint, shuffle as _shuffle
 from Cryptodome.Util import Counter
+
 from constants import MAX_CHAN_ID, MIN_CHAN_ID, SYM_KEY_LEN, CTR_PREFIX_LEN, \
-    GCM_MAC_LEN, CHAN_ID_SIZE, RESERVED_LEN, LINK_HEADER_LEN, NONCE_LEN, \
-    FLAG_LEN
+    GCM_MAC_LEN, NONCE_LEN
 
 BYTE_ORDER = "big"
+
+shuffle = _shuffle
 
 
 def b2i(int_in_bytes):
@@ -189,32 +190,3 @@ def gcm_cipher(key, counter):
                    nonce=i2b(counter, CTR_PREFIX_LEN) +
                    bytes(NONCE_LEN - CTR_PREFIX_LEN),
                    mac_len=GCM_MAC_LEN)
-
-
-def link_encrypt(key, link_ctr, plain_txt):
-    msg_type, chan_id, ctr_prefix, payload = cut(
-        plain_txt, FLAG_LEN, CHAN_ID_SIZE, CTR_PREFIX_LEN)
-
-    reserved = get_random_bytes(RESERVED_LEN)
-
-    # use all 0s as link key, since they can not be exchanged yet
-    cipher = gcm_cipher(key, link_ctr)
-
-    # ctr encrypt the header with a random link counter prefix
-    header, mac = cipher.encrypt_and_digest(chan_id + ctr_prefix + msg_type + reserved)
-
-    return i2b(link_ctr, CTR_PREFIX_LEN) + header + mac + payload
-
-
-def link_decrypt(key, cipher_txt):
-    link_ctr, header, mac, fragment = cut(cipher_txt, CTR_PREFIX_LEN,
-                                          LINK_HEADER_LEN, GCM_MAC_LEN)
-
-    cipher = gcm_cipher(key, b2i(link_ctr))
-
-    plain_header = cipher.decrypt_and_verify(header, mac)
-
-    chan_id, msg_ctr, msg_type, reserved = cut(
-        plain_header, CHAN_ID_SIZE, CTR_PREFIX_LEN, FLAG_LEN)
-
-    return b2i(link_ctr), b2i(chan_id), msg_ctr, fragment, msg_type

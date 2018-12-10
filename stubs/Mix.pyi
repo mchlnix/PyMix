@@ -1,8 +1,8 @@
 from socket import socket
-from typing import Any
 
 from Types import AddressTuple
 from petlib.bn import Bn
+from petlib.ec import EcPt
 
 from LinkEncryption import LinkEncryptor, LinkDecryptor
 
@@ -10,7 +10,7 @@ STORE_LIMIT: int
 
 class Mix:
     priv_comp: Bn
-    pub_comp: Any
+    pub_comp: EcPt
     incoming: socket
     next_addr: AddressTuple
     mix_addr: AddressTuple

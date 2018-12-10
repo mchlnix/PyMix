@@ -5,11 +5,17 @@ FRAG_COUNT_SIZE: int
 FRAG_INDEX_SIZE: int
 FRAG_PADDING_SIZE: int
 FRAG_HEADER_SIZE: int
+
 MAX_FRAG_COUNT: int
+
 HIGHEST_ID: int
 LOWEST_ID: int
-FRAG_SIZE: int
+
+DATA_FRAG_SIZE: int
+INIT_FRAG_SIZE: int
+
 DATA_PACKET_SIZE: int
+INIT_PACKET_SIZE: int
 
 class MixMessageStore:
     packets: Dict[int, MixMessage]
@@ -47,9 +53,6 @@ def make_dummy_init_fragment() -> bytes: ...
 def make_dummy_data_fragment() -> bytes: ...
 
 class FragmentGenerator:
-    data_payload_limit: ClassVar[int]
-    init_payload_limit: ClassVar[int]
-
     PADDING_FLAG: ClassVar[int]
     LAST_FRAG_FLAG: ClassVar[int]
     PADDING_BITMASK: ClassVar[int]

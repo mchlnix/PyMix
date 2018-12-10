@@ -2,7 +2,7 @@ from random import randint
 from selectors import DefaultSelector, EVENT_READ
 from socket import socket, AF_INET, SOCK_DGRAM as UDP
 
-from MixMessage import FRAG_SIZE, MixMessageStore, DATA_PACKET_SIZE, FragmentGenerator, \
+from MixMessage import DATA_FRAG_SIZE, MixMessageStore, DATA_PACKET_SIZE, FragmentGenerator, \
     make_dummy_init_fragment, make_dummy_data_fragment
 from MsgV3 import gen_init_msg, process
 from ReplayDetection import ReplayDetector
@@ -297,7 +297,7 @@ class ChannelExit:
         If the fragment completes the mix message, all completed mix messages
         will be sent out over their sockets.
         """
-        fragment, _ = cut(request, FRAG_SIZE)  # cut off any padding
+        fragment, _ = cut(request, DATA_FRAG_SIZE)  # cut off any padding
 
         try:
             self.mix_msg_store.parse_fragment(fragment)

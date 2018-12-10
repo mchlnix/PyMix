@@ -11,6 +11,14 @@ def group_expon(exponent):
     return params.group.expon_base([exponent])
 
 
+def gen_priv_key():
+    return params.group.gensecret()
+
+
+def get_pub_key(private_key):
+    return group_expon(private_key)
+
+
 def gen_init_msg(pub_mix_keys, channel_keys, payload):
     assert len(pub_mix_keys) == len(channel_keys)
 

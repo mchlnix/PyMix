@@ -6,7 +6,7 @@ from socket import socket, AF_INET, SOCK_DGRAM as UDP
 from petlib.bn import Bn
 
 from LinkEncryption import LinkDecryptor, LinkEncryptor
-from MsgV3 import group_expon
+from MsgV3 import get_pub_key
 from UDPChannel import ChannelMid
 from constants import UDP_MTU, SYM_KEY_LEN, DATA_MSG_FLAG
 from util import read_cfg_values, shuffle
@@ -20,7 +20,7 @@ class Mix:
         # decrypt for messages from a client
         # encrypt for responses to the client
         self.priv_comp = secret
-        self.pub_comp = group_expon(self.priv_comp)
+        self.pub_comp = get_pub_key(self.priv_comp)
 
         # create sockets
         # the 'port' arg is which one to listen and send datagrams from

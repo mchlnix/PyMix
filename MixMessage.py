@@ -1,7 +1,7 @@
 import math
 from random import randint
 
-from constants import FRAG_PAYLOAD_SIZE, INIT_OVERHEAD, DATA_OVERHEAD
+from constants import DATA_FRAG_PAYLOAD_SIZE, INIT_OVERHEAD, DATA_OVERHEAD, INIT_FRAG_PAYLOAD_SIZE
 from util import b2i, i2b, get_random_bytes, cut
 
 #########################################
@@ -31,10 +31,11 @@ MAX_FRAG_COUNT = 2 ** (FRAG_COUNT_SIZE * 8) - 1
 HIGHEST_ID = 2 ** (FRAG_ID_SIZE * 8) - 1
 LOWEST_ID = 1
 
-FRAG_SIZE = FRAG_HEADER_SIZE + FRAG_PAYLOAD_SIZE
+DATA_FRAG_SIZE = FRAG_HEADER_SIZE + DATA_FRAG_PAYLOAD_SIZE
+INIT_FRAG_SIZE = FRAG_HEADER_SIZE + INIT_FRAG_PAYLOAD_SIZE
 
-DATA_PACKET_SIZE = DATA_OVERHEAD + FRAG_SIZE
-INIT_PACKET_SIZE = INIT_OVERHEAD + FRAG_SIZE
+DATA_PACKET_SIZE = DATA_OVERHEAD + DATA_FRAG_SIZE
+INIT_PACKET_SIZE = INIT_OVERHEAD + INIT_FRAG_SIZE
 
 
 class MixMessageStore:
@@ -237,22 +238,21 @@ def make_fragment(message_id, fragment_number, last_fragment, payload, payload_l
 
 def make_dummy_data_fragment():
     return make_fragment(0x0, 0x0, True, bytes(0),
-                         FragmentGenerator.data_payload_limit)
+                         DATA_FRAG_PAYLOAD_SIZE)
 
 
 def make_dummy_init_fragment():
     return make_fragment(0x0, 0x0, True, bytes(0),
-                         FragmentGenerator.init_payload_limit)
+                         INIT_FRAG_PAYLOAD_SIZE)
 
 
 class FragmentGenerator:
-    data_payload_limit = FRAG_PAYLOAD_SIZE
-    init_payload_limit = FRAG_PAYLOAD_SIZE - (INIT_OVERHEAD - DATA_OVERHEAD)
-
     PADDING_FLAG = 0x80
     LAST_FRAG_FLAG = 0x40
 
     PADDING_BITMASK = 0x7F
+
+    last_used_message_id = 0
 
     def __init__(self, udp_payload):
         self.udp_payload = udp_payload
@@ -260,10 +260,10 @@ class FragmentGenerator:
         self.current_fragment = 0
 
     def get_init_fragment(self):
-        return self._build_fragment(FragmentGenerator.init_payload_limit)
+        return self._build_fragment(INIT_FRAG_PAYLOAD_SIZE)
 
     def get_data_fragment(self):
-        return self._build_fragment(FragmentGenerator.data_payload_limit)
+        return self._build_fragment(DATA_FRAG_PAYLOAD_SIZE)
 
     def _build_fragment(self, payload_limit):
         is_last_fragment = len(self.udp_payload) <= payload_limit
