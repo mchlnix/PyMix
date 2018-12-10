@@ -1,6 +1,8 @@
 from typing import List, Tuple, Dict, ClassVar
 
 FRAG_ID_SIZE: int
+DUMMY_FRAG_ID: int
+
 FRAG_COUNT_SIZE: int
 FRAG_INDEX_SIZE: int
 FRAG_PADDING_SIZE: int

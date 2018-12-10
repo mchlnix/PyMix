@@ -17,6 +17,7 @@ from util import b2i, i2b, get_random_bytes, cut
 
 
 FRAG_ID_SIZE = 4
+DUMMY_FRAG_ID = 0
 
 FRAG_COUNT_SIZE = 1
 FRAG_INDEX_SIZE = FRAG_COUNT_SIZE  # have to stay equal size
@@ -210,8 +211,8 @@ def make_fragment(message_id, fragment_number, last_fragment, payload, payload_l
     if fragment_number > 0b0011_1111:
         raise ValueError("Too many fragments needed for this payload.")
 
-    #if len(payload) == 0:
-     #   raise ValueError("No more fragments left to generate.")
+    if len(payload) == 0 and message_id != DUMMY_FRAG_ID:
+        raise ValueError("No more fragments left to generate.")
 
     frag_byte = fragment_number
 

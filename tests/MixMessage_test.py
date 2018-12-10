@@ -139,6 +139,19 @@ def test_get_data_fragment_2_fragments():
     assert udp_payload == fragmented_payload
 
 
+def test_get_data_fragment_too_many():
+    udp_payload = get_random_bytes(400)
+
+    f = FragmentGenerator(udp_payload)
+
+    try:
+        for _ in range(1000):
+            fragment = f.get_data_fragment()
+        assert False
+    except ValueError:
+        assert True
+
+
 def test_get_init_fragment():
     udp_payload = get_random_bytes(120)
 
