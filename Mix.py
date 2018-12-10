@@ -70,7 +70,7 @@ class Mix:
                 else:
                     channel = ChannelMid(in_id)
 
-                channel.parse_channel_init(fragment, self.priv_comp)
+                channel.parse_channel_init(msg_ctr + fragment, self.priv_comp)
             except ValueError as ve:
                 print("Channel Init decryption failed. Probably gotten a "
                       "message for that channel too early. Dropping packet.")
