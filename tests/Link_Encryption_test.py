@@ -1,7 +1,7 @@
 from Counter import Counter
 from LinkEncryption import LinkEncryptor, LinkDecryptor
-from constants import DATA_MSG_FLAG, CTR_PREFIX_LEN, CHAN_ID_SIZE, REPLAY_WINDOW_SIZE, CHANNEL_CTR_START
-from util import get_random_bytes, i2b, gen_ctr_prefix, gen_sym_key
+from constants import DATA_MSG_FLAG, CHAN_ID_SIZE, REPLAY_WINDOW_SIZE, CHANNEL_CTR_START
+from util import get_random_bytes, i2b, gen_sym_key
 
 payload = get_random_bytes(200)
 msg_type = DATA_MSG_FLAG

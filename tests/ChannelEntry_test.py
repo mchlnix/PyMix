@@ -3,7 +3,7 @@ from MsgV3 import get_pub_key, gen_priv_key
 from ReplayDetection import ReplayDetectedError
 from UDPChannel import ChannelEntry
 from constants import MIX_COUNT, CHAN_ID_SIZE, FLAG_LEN, CTR_PREFIX_LEN
-from util import gen_sym_key, ctr_cipher, i2b
+from util import gen_sym_key, ctr_cipher, i2b, cut, b2i
 
 src_addr = ("127.0.0.1", 12345)
 dest_addr = ("127.0.0.2", 23456)
@@ -31,10 +31,7 @@ def test_replay_detection():
 
     packet = FragmentGenerator(bytes(100)).get_data_fragment()
 
-    for _ in range(MIX_COUNT):
-        cipher = ctr_cipher(sym_key, counter)
-
-        packet = i2b(counter, CTR_PREFIX_LEN) + cipher.encrypt(packet)
+    packet = channel.encrypt_fragment(packet)
 
     channel.recv_response_fragment(packet)
 
@@ -44,11 +41,51 @@ def test_replay_detection():
     except ReplayDetectedError:
         assert True
 
-    counter += 1
+    packet = channel.encrypt_fragment(packet)
+
+    channel.recv_response_fragment(packet)
+
+
+def test_encrypt_fragment():
+    channel = ChannelEntry(src_addr, dest_addr, public_keys)
+
+    sym_key = gen_sym_key()
+    channel.sym_keys = [sym_key] * MIX_COUNT
+
+    fragment = FragmentGenerator(bytes(100)).get_data_fragment()
+
+    packet1 = channel.encrypt_fragment(fragment)
+
+    packet2 = fragment
+    counter = 1
 
     for _ in range(MIX_COUNT):
         cipher = ctr_cipher(sym_key, counter)
 
-        packet = i2b(counter, CTR_PREFIX_LEN) + cipher.encrypt(packet)
+        packet2 = i2b(counter, CTR_PREFIX_LEN) + cipher.encrypt(packet2)
 
-    channel.recv_response_fragment(packet)
+    assert packet1 == packet2
+
+
+def test_decrypt_fragment():
+    channel = ChannelEntry(src_addr, dest_addr, public_keys)
+
+    sym_key = gen_sym_key()
+    channel.sym_keys = [sym_key] * MIX_COUNT
+
+    fragment = FragmentGenerator(bytes(100)).get_data_fragment()
+
+    fragment = channel.encrypt_fragment(fragment)
+
+    packet1 = channel.decrypt_fragment(fragment)
+
+    for _ in range(MIX_COUNT):
+        msg_ctr, fragment = cut(fragment, CTR_PREFIX_LEN)
+
+        cipher = ctr_cipher(sym_key, b2i(msg_ctr))
+
+        fragment = cipher.decrypt(fragment)
+
+    packet2 = fragment
+
+    assert packet1 == packet2
