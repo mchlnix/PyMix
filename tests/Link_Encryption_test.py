@@ -1,5 +1,6 @@
 from Counter import Counter
 from LinkEncryption import LinkEncryptor, LinkDecryptor
+from ReplayDetection import ReplayDetectedError
 from constants import DATA_MSG_FLAG, CHAN_ID_SIZE, REPLAY_WINDOW_SIZE, CHANNEL_CTR_START
 from util import get_random_bytes, i2b, gen_sym_key
 
@@ -32,11 +33,11 @@ def test_replay_detection_already_seen():
 
     encrypted = encryptor.encrypt(msg_type + i2b(chan_id, CHAN_ID_SIZE) + msg_ctr + payload)
 
-    _ = decryptor.decrypt(encrypted)
+    decryptor.decrypt(encrypted)
 
     try:
         decryptor.decrypt(encrypted)
-    except Exception:
+    except ReplayDetectedError:
         assert True
         return
 
@@ -53,13 +54,13 @@ def test_replay_detection_too_small():
     for _ in range(REPLAY_WINDOW_SIZE + 1):
         encrypted = encryptor.encrypt(msg_type + i2b(chan_id, CHAN_ID_SIZE) + msg_ctr + payload)
 
-        _ = decryptor.decrypt(encrypted)
+        decryptor.decrypt(encrypted)
 
     assert first_link_counter not in decryptor.replay_detector.replay_window
 
     try:
         decryptor.decrypt(first_encrypted)
-    except Exception:
+    except ReplayDetectedError:
         assert True
         return
 

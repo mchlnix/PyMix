@@ -56,5 +56,5 @@ with open("/tmp/blub.csv", "w") as f:
         f.write("{},{}\n".format(key, cntr[key]))
 
 for key, value in delays.items():
-    if value >= 1 or value <= 1/1000:
+    if value >= 1 or value <= 1 / 1000.0:
         print(key, value)

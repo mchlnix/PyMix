@@ -7,7 +7,7 @@ from util import i2b, ip2b
 
 num_of_requests = 10
 
-requests = ["Hello"]*num_of_requests
+requests = ["Hello"] * num_of_requests
 
 dest_ports = [60001, 60002, 60003, 60004, 60005]
 

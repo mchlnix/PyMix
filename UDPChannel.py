@@ -248,7 +248,7 @@ class ChannelMid:
 
         self.request_replay_detector.check_replay_window(b2i(msg_ctr))
 
-        sym_key, payload, channel_init = process(priv_comp, channel_init)
+        sym_key, _, channel_init = process(priv_comp, channel_init)
 
         if self.key is not None:
             assert self.key == sym_key
@@ -308,7 +308,7 @@ class ChannelExit:
         If the fragment completes the mix message, all completed mix messages
         will be sent out over their sockets.
         """
-        fragment, random_padding = cut(request, DATA_FRAG_SIZE)
+        fragment, _ = cut(request, DATA_FRAG_SIZE)
 
         try:
             self.mix_msg_store.parse_fragment(fragment)
@@ -365,8 +365,7 @@ class ChannelExit:
 
     def send_chan_confirm(self):
         print(self, "Init", "<-", "len:", DATA_PACKET_SIZE)
-        ChannelExit.to_mix.append(CHAN_CONFIRM_MSG_FLAG + i2b(self.in_chan_id, CHAN_ID_SIZE) + bytes(CTR_PREFIX_LEN) +
-                                  get_random_bytes(DATA_PACKET_SIZE))
+        ChannelExit.to_mix.append(CHAN_CONFIRM_MSG_FLAG + i2b(self.in_chan_id, CHAN_ID_SIZE) + bytes(CTR_PREFIX_LEN) + get_random_bytes(DATA_PACKET_SIZE))
 
     def __str__(self):
         return "ChannelExit {} - {}:{}:".format(self.in_chan_id, *self.dest_addr)

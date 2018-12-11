@@ -2,12 +2,9 @@
 from argparse import ArgumentParser as ArgParse
 from socket import socket, AF_INET, SOCK_DGRAM as UDP
 
-parser = ArgParse(description="Receives data on the specified ip:port using" +
-                  "UDP and prints it on stdout.")
-parser.add_argument("ip:port", help="IP and Port pair to listen for" +
-                    "datagrams on.")
-parser.add_argument("-t", "--tcp", help="Use TCP instead of UDP to listen" +
-                    "for data.", action="store_true")
+parser = ArgParse(description="Receives data on the specified ip:port using UDP and prints it on stdout.")
+parser.add_argument("ip:port", help="IP and Port pair to listen for datagrams on.")
+parser.add_argument("-t", "--tcp", help="Use TCP instead of UDP to listen for data.", action="store_true")
 
 BUFFER_SIZE = 65535
 

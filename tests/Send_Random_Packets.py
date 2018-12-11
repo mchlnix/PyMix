@@ -37,6 +37,6 @@ while to_send != 0:
 
     to_send -= 1
 
-    sleep(1/20)
+    sleep(1 / 20.0)
 
 print("Sent", packets, "packets in", time() - start, "seconds.")

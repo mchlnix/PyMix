@@ -64,7 +64,7 @@ class ExitPoint:
 
                             channel = ChannelExit.table[chan_id]
 
-                            init_overhead, fragment = cut(fragment, INIT_OVERHEAD)
+                            _, fragment = cut(fragment, INIT_OVERHEAD)
 
                             channel.recv_request(fragment)
                         else:
@@ -96,10 +96,8 @@ class ExitPoint:
 
 
 if __name__ == "__main__":
-    parser = ArgParser(description="Receives data on the specified ip:port" +
-                                   "using UDP and prints it on stdout.")
-    parser.add_argument("ip:port", help="IP and Port pair to listen for " +
-                                        "datagrams on")
+    parser = ArgParser(description="Receives data on the specified ip:port using UDP and prints it on stdout.")
+    parser.add_argument("ip:port", help="IP and Port pair to listen for datagrams on")
 
     args = parser.parse_args()
 

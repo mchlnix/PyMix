@@ -25,8 +25,8 @@ assert INIT_PACKET_SIZE == DATA_PACKET_SIZE
 
 def test_how_many_padding_bytes():
     assert 1 == how_many_padding_bytes_necessary(1) == how_many_padding_bytes_necessary(2**7)
-    assert 2 == how_many_padding_bytes_necessary(2**7+1) == how_many_padding_bytes_necessary(2**14)
-    assert 3 == how_many_padding_bytes_necessary(2**14+1) == how_many_padding_bytes_necessary(2**21)
+    assert 2 == how_many_padding_bytes_necessary(2**7 + 1) == how_many_padding_bytes_necessary(2**14)
+    assert 3 == how_many_padding_bytes_necessary(2**14 + 1) == how_many_padding_bytes_necessary(2**21)
 
 
 def test_padding_length_to_bytes():
@@ -146,7 +146,7 @@ def test_get_data_fragment_too_many():
 
     try:
         for _ in range(1000):
-            fragment = f.get_data_fragment()
+            f.get_data_fragment()
         assert False
     except ValueError:
         assert True

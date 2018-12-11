@@ -14,7 +14,7 @@ def test_gen_init_msg():
 
     passes = 100
 
-    for i in range(passes):
+    for _ in range(passes):
         chan_keys = [gen_sym_key(), gen_sym_key(), gen_sym_key()]
         payload = get_random_bytes(100)
 

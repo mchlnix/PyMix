@@ -113,7 +113,7 @@ class EntryPoint:
             for channel in ChannelEntry.table.values():
 
                 if channel.allowed_to_send:
-                    while len(channel.packets) > 0:
+                    while channel.packets:
                         data_message = channel.get_data_message()
                         cipher_text = self.link_encryptor.encrypt(data_message)
 

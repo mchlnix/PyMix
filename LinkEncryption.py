@@ -41,7 +41,7 @@ class LinkDecryptor:
 
         plain_header = cipher.decrypt_and_verify(header, mac)
 
-        chan_id, msg_ctr, msg_type, reserved = cut(
+        chan_id, msg_ctr, msg_type, _ = cut(
             plain_header, CHAN_ID_SIZE, CTR_PREFIX_LEN, FLAG_LEN)
 
         self.replay_detector.check_replay_window(link_ctr)

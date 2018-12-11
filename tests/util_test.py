@@ -79,4 +79,4 @@ def test_cut():
     part1, part2, part3 = cut(buffer, 50, 50)
 
     assert part1 == bytes(50) == part2
-    assert len(part3) == 0
+    assert not part3

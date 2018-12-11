@@ -136,7 +136,7 @@ def how_many_padding_bytes_necessary(padding_len):
 
     l2 = math.log2(padding_len)
 
-    return math.ceil(l2/7)
+    return math.ceil(l2 / 7)
 
 
 def bytes_to_padding_length(padding_bytes):
@@ -200,7 +200,7 @@ def parse_fragment(fragment):
 
         payload_len -= (padding_len + padding_bytes)
 
-        padding_bytes, payload, padding = cut(rest, padding_bytes, payload_len)
+        _, payload, _ = cut(rest, padding_bytes, payload_len)
     else:
         payload = rest
 
@@ -211,7 +211,7 @@ def make_fragment(message_id, fragment_number, last_fragment, payload, payload_l
     if fragment_number > 0b0011_1111:
         raise ValueError("Too many fragments needed for this payload.")
 
-    if len(payload) == 0 and message_id != DUMMY_FRAG_ID:
+    if not payload and message_id != DUMMY_FRAG_ID:
         raise ValueError("No more fragments left to generate.")
 
     frag_byte = fragment_number

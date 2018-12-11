@@ -187,6 +187,4 @@ def ctr_cipher(key, counter):
 def gcm_cipher(key, counter):
     # nbits = 8 bytes + prefix = 8 bytes
     return AES.new(key, AES.MODE_GCM,
-                   nonce=i2b(counter, CTR_PREFIX_LEN) +
-                   bytes(NONCE_LEN - CTR_PREFIX_LEN),
-                   mac_len=GCM_MAC_LEN)
+                   nonce=i2b(counter, CTR_PREFIX_LEN) + bytes(NONCE_LEN - CTR_PREFIX_LEN), mac_len=GCM_MAC_LEN)
