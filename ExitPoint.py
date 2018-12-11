@@ -39,7 +39,9 @@ class ExitPoint:
                 if channel is not None:
                     # if the socket is associated with a channel, it's a
                     # response
-                    channel.recv_response()
+                    response = channel.out_sock.recv(UDP_MTU)
+
+                    channel.recv_response(response)
                 else:
                     # the only socket without a channel is the mix socket
                     sock = key.fileobj
@@ -58,9 +60,7 @@ class ExitPoint:
                         # automatically puts it into the channel table
                         # of ChannelExit
                         if chan_id in ChannelExit.table.keys():
-                            print(
-                                "Received Channel init message for established Channel",
-                                chan_id)
+                            print(self, "Received Channel Init message for established Channel", chan_id)
 
                             channel = ChannelExit.table[chan_id]
 
@@ -84,11 +84,15 @@ class ExitPoint:
 
                 # send responses to mix
                 for packet in ChannelExit.to_mix:
-                    cipher = self.link_encryptor.encrypt(packet)
+                    cipher_text = self.link_encryptor.encrypt(packet)
 
-                    self.sock_to_mix.send(cipher)
+                    print(self, "Data/Init <-", len(cipher_text))
+                    self.sock_to_mix.send(cipher_text)
 
                 ChannelExit.to_mix.clear()
+
+    def __str__(self):
+        return "ExitPoint"
 
 
 if __name__ == "__main__":

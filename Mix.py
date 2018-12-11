@@ -38,7 +38,7 @@ class Mix:
         self.request_link_decryptor = LinkDecryptor(bytes(SYM_KEY_LEN))
         self.response_link_decryptor = LinkDecryptor(bytes(SYM_KEY_LEN))
 
-        print("Mix.py listening on {}".format(own_addr))
+        print(self, "listening on {}:{}".format(*own_addr))
 
     def handle_mix_fragment(self, packet):
         """Handles a message coming in from a client to be sent over the mix
@@ -55,26 +55,19 @@ class Mix:
             # existing channel
 
             if in_id not in ChannelMid.table_in.keys():
-                raise Exception("Got data msg for uninitalized channel", in_id)
+                raise Exception("Got data msg for uninitialized channel", in_id)
 
             channel = ChannelMid.table_in[in_id]
             channel.forward_request(msg_ctr + fragment)
         else:
             # new channel
-            # Decrypt only the first block asymmetrically
+            if in_id in ChannelMid.table_in.keys():
+                print(self, "Duplicate channel initialization for", in_id)
+                channel = ChannelMid.table_in[in_id]
+            else:
+                channel = ChannelMid(in_id)
 
-            try:
-                if in_id in ChannelMid.table_in.keys():
-                    print("Got another channel initialization msg for", in_id)
-                    channel = ChannelMid.table_in[in_id]
-                else:
-                    channel = ChannelMid(in_id)
-
-                channel.parse_channel_init(msg_ctr + fragment, self.priv_comp)
-            except ValueError as ve:
-                print("Channel Init decryption failed. Probably gotten a "
-                      "message for that channel too early. Dropping packet.")
-                raise ve
+            channel.parse_channel_init(msg_ctr + fragment, self.priv_comp)
 
     def handle_response(self, response):
         """Handles a message, that came as a response to an initially made
@@ -114,6 +107,7 @@ class Mix:
 
                     enc_packet = self.request_link_encryptor.encrypt(packet)
 
+                    print(self, "Data/Init", "->", len(enc_packet))
                     self.incoming.sendto(enc_packet, self.next_addr)
 
             # send out responses
@@ -126,7 +120,11 @@ class Mix:
 
                     enc_packet = self.response_link_encryptor.encrypt(packet)
 
+                    print(self, "Data/Init", "<-", len(enc_packet))
                     self.incoming.sendto(enc_packet, self.mix_addr)
+
+    def __str__(self):
+        return "Mix:"
 
 
 if __name__ == "__main__":

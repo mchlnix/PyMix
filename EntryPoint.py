@@ -69,7 +69,8 @@ class EntryPoint:
         # send received responses to their respective recipients without
         # waiting
         for mix_msg in channel.get_completed_responses():
-            print("data", channel.src_addr, "<-", channel.chan_id, "len:", len(mix_msg.payload))
+            print(self, "Data {}:{} - {} <- {}".format(*channel.src_addr, channel.chan_id, len(mix_msg.payload)))
+
             self.socket.sendto(mix_msg.payload, channel.src_addr)
 
     def handle_request(self, request, src_addr):
@@ -97,7 +98,7 @@ class EntryPoint:
         self.socket = socket(AF_INET, UDP)
         self.socket.bind(own_addr)
 
-        print("Listening on {}:{}.".format(*own_addr))
+        print(self, "Listening on {}:{}.".format(*own_addr))
         while True:
             data, addr = self.socket.recvfrom(UDP_MTU)
 
@@ -114,16 +115,23 @@ class EntryPoint:
                 if channel.allowed_to_send:
                     while len(channel.packets) > 0:
                         data_message = channel.get_data_message()
-                        cipher = self.link_encryptor.encrypt(data_message)
+                        cipher_text = self.link_encryptor.encrypt(data_message)
 
-                        self.socket.sendto(cipher, mix_addr)
+                        print(self, "Data {}:{} - {} ->".format(*channel.src_addr, channel.chan_id),
+                              len(cipher_text))
+                        self.socket.sendto(cipher_text, mix_addr)
 
                     channel.packets.clear()
                 else:
                     init_message = channel.chan_init_msg()
-                    cipher = self.link_encryptor.encrypt(init_message)
+                    cipher_text = self.link_encryptor.encrypt(init_message)
 
-                    self.socket.sendto(cipher, mix_addr)
+                    print(self, "Init {}:{} - {}".format(*channel.src_addr, channel.chan_id), "->",
+                          len(cipher_text))
+                    self.socket.sendto(cipher_text, mix_addr)
+
+    def __str__(self):
+        return "EntryPoint"
 
 
 if __name__ == "__main__":

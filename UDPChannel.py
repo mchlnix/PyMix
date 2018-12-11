@@ -7,8 +7,7 @@ from MixMessage import DATA_FRAG_SIZE, MixMessageStore, DATA_PACKET_SIZE, Fragme
     make_dummy_init_fragment, make_dummy_data_fragment
 from MsgV3 import gen_init_msg, process, cut_init_message
 from ReplayDetection import ReplayDetector
-from constants import CHAN_ID_SIZE, MIN_PORT, MAX_PORT, UDP_MTU, \
-    CTR_PREFIX_LEN, \
+from constants import CHAN_ID_SIZE, MIN_PORT, MAX_PORT, CTR_PREFIX_LEN, \
     CTR_MODE_PADDING, IPV4_LEN, PORT_LEN, CHAN_INIT_MSG_FLAG, DATA_MSG_FLAG, \
     CHAN_CONFIRM_MSG_FLAG, FLAG_LEN, MIX_COUNT, CHANNEL_CTR_START
 from util import i2b, b2i, random_channel_id, cut, b2ip, gen_sym_key, ctr_cipher, \
@@ -59,19 +58,18 @@ class ChannelEntry:
         destination = ip2b(ip) + i2b(port, PORT_LEN)
 
         fragment = self.get_init_fragment()
-        channel_init = bytes(self.request_counter) + gen_init_msg(self.pub_comps, self.sym_keys, destination + fragment)
 
+        channel_init = gen_init_msg(self.pub_comps, self.sym_keys, destination + fragment)
         print(self, "Init", "->", len(channel_init))
 
-        # we add a random ctr prefix, because the link encryption expects there
-        # to be one, even though the channel init wasn't sym encrypted
-        return CHAN_INIT_MSG_FLAG + self.b_chan_id + channel_init
+        # we send a counter value with init messages for channel replay detection only
+        return CHAN_INIT_MSG_FLAG + self.b_chan_id + bytes(self.request_counter) + channel_init
 
     def get_data_message(self):
         # todo make into generator
         fragment = self.get_data_fragment()
 
-        print(self, "Data", "->", len(fragment))
+        print(self, "Data", "->", len(fragment) - CTR_PREFIX_LEN)
 
         return DATA_MSG_FLAG + self.b_chan_id + fragment
 
@@ -215,7 +213,7 @@ class ChannelMid:
 
         forward_msg = cipher.decrypt(cipher_text) + get_random_bytes(CTR_MODE_PADDING)
 
-        print(self, "Data", "->", len(forward_msg))
+        print(self, "Data", "->", len(forward_msg) - CTR_PREFIX_LEN)
 
         ChannelMid.requests.append(DATA_MSG_FLAG + i2b(self.out_chan_id, CHAN_ID_SIZE) + forward_msg)
 
@@ -235,11 +233,11 @@ class ChannelMid:
 
         cipher = ctr_cipher(self.key, int(self.response_counter))
 
-        forward_msg = bytes(self.response_counter) + cipher.encrypt(response)
-
-        response = msg_type + i2b(self.in_chan_id, CHAN_ID_SIZE) + forward_msg
+        forward_msg = cipher.encrypt(response)
 
         print(self, "Data", "<-", len(forward_msg))
+
+        response = msg_type + i2b(self.in_chan_id, CHAN_ID_SIZE) + bytes(self.response_counter) + forward_msg
 
         ChannelMid.responses.append(response)
 
@@ -258,9 +256,9 @@ class ChannelMid:
         else:
             self.key = sym_key
 
-        channel_init = msg_ctr + channel_init
-
         print(self, "Init", "->", len(channel_init))
+
+        channel_init = msg_ctr + channel_init
 
         # we add an empty ctr prefix, because the link encryption expects there
         # to be one, even though the channel init wasn't sym encrypted
@@ -326,13 +324,11 @@ class ChannelExit:
 
         self.mix_msg_store.remove_completed()
 
-    def recv_response(self):
+    def recv_response(self, response):
         """Turns the response into a MixMessage and saves its fragments for
         later sending.
         """
-        data = self.out_sock.recv(UDP_MTU)
-
-        frag_gen = FragmentGenerator(data)
+        frag_gen = FragmentGenerator(response)
 
         while frag_gen:
             print(self, "Data", "<-", len(frag_gen.udp_payload))
@@ -368,7 +364,7 @@ class ChannelExit:
         self.recv_request(fragment)
 
     def send_chan_confirm(self):
-        print("init", self.in_chan_id, "<-", self.dest_addr, "len:", DATA_PACKET_SIZE)
+        print(self, "Init", "<-", "len:", DATA_PACKET_SIZE)
         ChannelExit.to_mix.append(CHAN_CONFIRM_MSG_FLAG + i2b(self.in_chan_id, CHAN_ID_SIZE) + bytes(CTR_PREFIX_LEN) +
                                   get_random_bytes(DATA_PACKET_SIZE))
 
