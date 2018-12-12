@@ -1,6 +1,7 @@
 from random import randint
 from selectors import DefaultSelector, EVENT_READ
 from socket import socket, AF_INET, SOCK_DGRAM as UDP
+from time import time
 
 from Counter import Counter
 from MixMessage import DATA_FRAG_SIZE, MixMessageStore, DATA_PACKET_SIZE, FragmentGenerator, \
@@ -9,7 +10,7 @@ from MsgV3 import gen_init_msg, process, cut_init_message
 from ReplayDetection import ReplayDetector
 from constants import CHAN_ID_SIZE, MIN_PORT, MAX_PORT, CTR_PREFIX_LEN, \
     CTR_MODE_PADDING, IPV4_LEN, PORT_LEN, CHAN_INIT_MSG_FLAG, DATA_MSG_FLAG, \
-    CHAN_CONFIRM_MSG_FLAG, FLAG_LEN, MIX_COUNT, CHANNEL_CTR_START
+    CHAN_CONFIRM_MSG_FLAG, FLAG_LEN, MIX_COUNT, CHANNEL_CTR_START, CHANNEL_TIMEOUT_SEC
 from util import i2b, b2i, random_channel_id, cut, b2ip, gen_sym_key, ctr_cipher, \
     get_random_bytes, ip2b
 
@@ -296,6 +297,8 @@ class ChannelExit:
 
         self.dest_addr = ("0.0.0.0", 0)
 
+        self.last_interaction = time()
+
         print(self, "New Channel")
 
         self.mix_msg_store = MixMessageStore()
@@ -308,6 +311,7 @@ class ChannelExit:
         If the fragment completes the mix message, all completed mix messages
         will be sent out over their sockets.
         """
+        self.last_interaction = time()
         fragment, _ = cut(request, DATA_FRAG_SIZE)
 
         try:
@@ -320,11 +324,17 @@ class ChannelExit:
         for mix_message in self.mix_msg_store.completed():
             print(self, "Data", "->", len(mix_message.payload))
 
-            self.out_sock.send(mix_message.payload)
+            try:
+                self.out_sock.send(mix_message.payload)
+            except ConnectionRefusedError as ce:
+                print("Channel", self.in_chan_id, "with address", self.out_sock)
 
         self.mix_msg_store.remove_completed()
 
+        ChannelExit.check_for_timed_out_channels()
+
     def recv_response(self, response):
+        self.last_interaction = time()
         """Turns the response into a MixMessage and saves its fragments for
         later sending.
         """
@@ -339,6 +349,7 @@ class ChannelExit:
             ChannelExit.to_mix.append(DATA_MSG_FLAG + i2b(self.in_chan_id, CHAN_ID_SIZE) + packet)
 
     def parse_channel_init(self, channel_init):
+        self.last_interaction = time()
         _, _, payload = cut_init_message(channel_init)
 
         ip, port, fragment = cut(payload, IPV4_LEN, PORT_LEN)
@@ -369,6 +380,19 @@ class ChannelExit:
 
     def __str__(self):
         return "ChannelExit {} - {}:{}:".format(self.in_chan_id, *self.dest_addr)
+
+    @staticmethod
+    def check_for_timed_out_channels():
+        now = time()
+
+        for channel_id in list(ChannelExit.table.keys()):
+            channel = ChannelExit.table[channel_id]
+
+            channel_timed_out = (now - channel.last_interaction) > CHANNEL_TIMEOUT_SEC
+
+            if channel_timed_out:
+                print(__class__.__name__, "Timeout for channel", channel_id, "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+                del ChannelExit.table[channel_id]
 
     @staticmethod
     def random_socket():

@@ -15,6 +15,8 @@ MAX_CHAN_ID = 2**(8 * CHAN_ID_SIZE) - 1
 
 REPLAY_WINDOW_SIZE = 10
 
+CHANNEL_TIMEOUT_SEC = 30
+
 # sym encryption
 
 SYM_KEY_LEN = 16
