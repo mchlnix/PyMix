@@ -15,6 +15,24 @@ from util import i2b, b2i, random_channel_id, cut, b2ip, gen_sym_key, ctr_cipher
     get_random_bytes, ip2b
 
 
+def check_for_timed_out_channels(channel_table, timeout=CHANNEL_TIMEOUT_SEC, log_prefix="UDPChannel"):
+    now = time()
+
+    timed_out = []
+
+    for channel_id in channel_table.keys():
+        channel = channel_table[channel_id]
+
+        channel_timed_out = (now - channel.last_interaction) > timeout
+
+        if channel_timed_out:
+            print(log_prefix, "Timeout for channel", channel_id, "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+
+            timed_out.append(channel_id)
+
+    return timed_out
+
+
 class ChannelEntry:
     out_chan_list = []
     to_mix = []
@@ -43,6 +61,8 @@ class ChannelEntry:
         self.packets = []
         self.mix_msg_store = MixMessageStore()
 
+        self.last_interaction = time()
+
         self.allowed_to_send = False
 
     def chan_init_msg(self):
@@ -51,6 +71,7 @@ class ChannelEntry:
         asymmetric keys in the future. These will be used to encrypt the
         channel init message and the channel keys that the client decided on.
         """
+        self.last_interaction = time()
         self.request_counter.next()
 
         ip, port = self.dest_addr
@@ -106,17 +127,28 @@ class ChannelEntry:
             del self.packets[generator]
 
     def chan_confirm_msg(self):
+        self.last_interaction = time()
+
         if not self.allowed_to_send:
             print(self, "Received channel confirmation")
 
         self.allowed_to_send = True
 
     def make_request_fragments(self, request):
+        self.last_interaction = time()
+
         generator = FragmentGenerator(request)
 
         self.packets.append(generator)
 
+        timed_out = check_for_timed_out_channels(ChannelEntry.table, timeout=25)
+
+        for channel_id in timed_out:
+            del ChannelEntry.table[channel_id]
+
     def recv_response_fragment(self, response):
+        self.last_interaction = time()
+
         fragment = self.decrypt_fragment(response)
 
         try:
@@ -201,10 +233,14 @@ class ChannelMid:
 
         self.response_counter = Counter(CHANNEL_CTR_START)
 
+        self.last_interaction = time()
+
         self.initialized = False
 
     def forward_request(self, request):
         """Takes a mix fragment, already stripped of the channel id."""
+        self.last_interaction = time()
+
         ctr, cipher_text = cut(request, CTR_PREFIX_LEN)
         ctr = b2i(ctr)
 
@@ -218,7 +254,17 @@ class ChannelMid:
 
         ChannelMid.requests.append(DATA_MSG_FLAG + i2b(self.out_chan_id, CHAN_ID_SIZE) + forward_msg)
 
+        timed_out = check_for_timed_out_channels(ChannelMid.table_in)
+
+        for in_id in timed_out:
+            out_id = ChannelMid.table_in[in_id].out_chan_id
+
+            del ChannelMid.table_in[in_id]
+            del ChannelMid.table_out[out_id]
+
     def forward_response(self, response):
+        self.last_interaction = time()
+
         # cut the padding off
         response, _ = cut(response, -CTR_MODE_PADDING)
 
@@ -245,6 +291,8 @@ class ChannelMid:
     def parse_channel_init(self, channel_init, priv_comp):
         """Takes an already decrypted channel init message and reads the key.
         """
+        self.last_interaction = time()
+
         msg_ctr, channel_init = cut(channel_init, CTR_PREFIX_LEN)
 
         self.request_replay_detector.check_replay_window(b2i(msg_ctr))
@@ -331,7 +379,10 @@ class ChannelExit:
 
         self.mix_msg_store.remove_completed()
 
-        ChannelExit.check_for_timed_out_channels()
+        timed_out = check_for_timed_out_channels(ChannelExit.table)
+
+        for channel_id in timed_out:
+            del ChannelExit.table[channel_id]
 
     def recv_response(self, response):
         self.last_interaction = time()
@@ -380,19 +431,6 @@ class ChannelExit:
 
     def __str__(self):
         return "ChannelExit {} - {}:{}:".format(self.in_chan_id, *self.dest_addr)
-
-    @staticmethod
-    def check_for_timed_out_channels():
-        now = time()
-
-        for channel_id in list(ChannelExit.table.keys()):
-            channel = ChannelExit.table[channel_id]
-
-            channel_timed_out = (now - channel.last_interaction) > CHANNEL_TIMEOUT_SEC
-
-            if channel_timed_out:
-                print(__class__.__name__, "Timeout for channel", channel_id, "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
-                del ChannelExit.table[channel_id]
 
     @staticmethod
     def random_socket():
