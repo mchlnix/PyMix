@@ -27,9 +27,6 @@ if __name__ == "__main__":
         try:
             data, addr = sock.recvfrom(BUFFER_SIZE)
 
-            if start_time is None:
-                start_time = time()
-
             packets += 1
 
             print(str(b2i(data[0:4])).rjust(7), "{:.9f}".format(time()))
