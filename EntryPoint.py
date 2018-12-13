@@ -7,7 +7,6 @@ from socket import socket, AF_INET, SOCK_DGRAM as UDP
 from petlib.ec import EcPt, EcGroup
 
 from LinkEncryption import LinkDecryptor, LinkEncryptor
-from MixMessage import MixMessageStore
 from UDPChannel import ChannelEntry
 from constants import IPV4_LEN, PORT_LEN, SYM_KEY_LEN, UDP_MTU
 from util import b2i, read_cfg_values, cut, b2ip, parse_ip_port
@@ -82,6 +81,7 @@ class EntryPoint:
 
                 channel = ChannelEntry.table[channel_id]
             except KeyError:
+                del self.ips2id[src_addr, dest_addr]
                 channel = self.make_new_channel(src_addr, dest_addr)
 
         # add fragments to internal packet list
