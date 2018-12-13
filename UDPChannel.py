@@ -10,7 +10,7 @@ from MsgV3 import gen_init_msg, process, cut_init_message
 from ReplayDetection import ReplayDetector
 from constants import CHAN_ID_SIZE, MIN_PORT, MAX_PORT, CTR_PREFIX_LEN, \
     CTR_MODE_PADDING, IPV4_LEN, PORT_LEN, CHAN_INIT_MSG_FLAG, DATA_MSG_FLAG, \
-    CHAN_CONFIRM_MSG_FLAG, FLAG_LEN, MIX_COUNT, CHANNEL_CTR_START, CHANNEL_TIMEOUT_SEC
+    CHAN_CONFIRM_MSG_FLAG, MSG_TYPE_FLAG_LEN, MIX_COUNT, CHANNEL_CTR_START, CHANNEL_TIMEOUT_SEC
 from util import i2b, b2i, random_channel_id, cut, b2ip, gen_sym_key, ctr_cipher, \
     get_random_bytes, ip2b
 
@@ -65,97 +65,33 @@ class ChannelEntry:
 
         self.allowed_to_send = False
 
-    def chan_init_msg(self):
-        """The bytes in keys are assumed to be the resident keys of the mixes
-        in reverse order of delivery (last mix first). The keys might be
-        asymmetric keys in the future. These will be used to encrypt the
-        channel init message and the channel keys that the client decided on.
-        """
+    def can_send(self):
+        return self.packets
+
+    def request(self, request):
         self.last_interaction = time()
-        self.request_counter.next()
 
-        ip, port = self.dest_addr
+        self._make_request_fragments(request)
 
-        # destination of the channel and the sym key for the last mix
-        destination = ip2b(ip) + i2b(port, PORT_LEN)
+    def response(self, response):
+        self.last_interaction = time()
 
-        fragment = self.get_init_fragment()
+        msg_type, response = cut(response, MSG_TYPE_FLAG_LEN)
 
-        channel_init = gen_init_msg(self.pub_comps, self.sym_keys, destination + fragment)
-        print(self, "Init", "->", len(channel_init))
+        if msg_type == CHAN_CONFIRM_MSG_FLAG:
+            self._chan_confirm_msg()
+        elif msg_type == DATA_MSG_FLAG:
+            self._receive_response_fragment(response)
 
-        # we send a counter value with init messages for channel replay detection only
-        return CHAN_INIT_MSG_FLAG + self.b_chan_id + bytes(self.request_counter) + channel_init
-
-    def get_data_message(self):
-        # todo make into generator
-        fragment = self.get_data_fragment()
-
-        print(self, "Data", "->", len(fragment) - CTR_PREFIX_LEN)
-
-        return DATA_MSG_FLAG + self.b_chan_id + fragment
-
-    def get_init_fragment(self):
-        # todo make into generator
-        if self.packets:
-            init_fragment = self.packets[0].get_init_fragment()
+    def get_message(self):
+        if self.allowed_to_send:
+            ret = self._get_data_message()
         else:
-            init_fragment = make_dummy_init_fragment()
+            ret = self._get_init_message()
 
-        self.clean_generator_list()
+        self._clean_generator_list()
 
-        return init_fragment
-
-    def get_data_fragment(self):
-        # todo make into generator
-        if self.packets:
-            fragment = self.packets[0].get_data_fragment()
-        else:
-            fragment = make_dummy_data_fragment()
-
-        self.clean_generator_list()
-
-        return self.encrypt_fragment(fragment)
-
-    def clean_generator_list(self):
-        delete = []
-        for i in range(len(self.packets)):
-            if not self.packets[i]:
-                delete.append(i)
-
-        for generator in reversed(delete):
-            del self.packets[generator]
-
-    def chan_confirm_msg(self):
-        self.last_interaction = time()
-
-        if not self.allowed_to_send:
-            print(self, "Received channel confirmation")
-
-        self.allowed_to_send = True
-
-    def make_request_fragments(self, request):
-        self.last_interaction = time()
-
-        generator = FragmentGenerator(request)
-
-        self.packets.append(generator)
-
-        timed_out = check_for_timed_out_channels(ChannelEntry.table, timeout=25)
-
-        for channel_id in timed_out:
-            del ChannelEntry.table[channel_id]
-
-    def recv_response_fragment(self, response):
-        self.last_interaction = time()
-
-        fragment = self.decrypt_fragment(response)
-
-        try:
-            self.mix_msg_store.parse_fragment(fragment)
-        except ValueError:
-            print(self, "Dummy Response received")
-            return
+        return ret
 
     def get_completed_responses(self):
         packets = self.mix_msg_store.completed()
@@ -167,7 +103,83 @@ class ChannelEntry:
 
         return packets
 
-    def encrypt_fragment(self, fragment):
+    def _get_init_message(self):
+        self.request_counter.next()
+
+        ip, port = self.dest_addr
+
+        destination = ip2b(ip) + i2b(port, PORT_LEN)
+
+        fragment = self._get_init_fragment()
+
+        channel_init = gen_init_msg(self.pub_comps, self.sym_keys, destination + fragment)
+
+        print(self, "Init", "->", len(channel_init))
+
+        # we send a counter value with init messages for channel replay detection only
+        return CHAN_INIT_MSG_FLAG + self.b_chan_id + bytes(self.request_counter) + channel_init
+
+    def _get_data_message(self):
+        # todo make into generator
+        fragment = self._get_data_fragment()
+
+        print(self, "Data", "->", len(fragment) - CTR_PREFIX_LEN)
+
+        return DATA_MSG_FLAG + self.b_chan_id + fragment
+
+    def _get_init_fragment(self):
+        # todo make into generator
+        if self.packets:
+            init_fragment = self.packets[0].get_init_fragment()
+        else:
+            init_fragment = make_dummy_init_fragment()
+
+        return init_fragment
+
+    def _get_data_fragment(self):
+        # todo make into generator
+        if self.packets:
+            fragment = self.packets[0].get_data_fragment()
+        else:
+            fragment = make_dummy_data_fragment()
+
+        return self._encrypt_fragment(fragment)
+
+    def _clean_generator_list(self):
+        delete = []
+        for i in range(len(self.packets)):
+            if not self.packets[i]:
+                delete.append(i)
+
+        for generator in reversed(delete):
+            del self.packets[generator]
+
+    def _chan_confirm_msg(self):
+        if not self.allowed_to_send:
+            print(self, "Received channel confirmation")
+
+        self.allowed_to_send = True
+
+    def _make_request_fragments(self, request):
+        generator = FragmentGenerator(request)
+
+        self.packets.append(generator)
+
+        timed_out = check_for_timed_out_channels(ChannelEntry.table, timeout=25)
+
+        for channel_id in timed_out:
+            del ChannelEntry.table[channel_id]
+
+    def _receive_response_fragment(self, response):
+        fragment = self._decrypt_fragment(response)
+
+        try:
+            self.mix_msg_store.parse_fragment(fragment)
+        except ValueError:
+            print(self, "Dummy Response received")
+            return
+
+    def _encrypt_fragment(self, fragment):
         self.request_counter.next()
 
         for key in reversed(self.sym_keys):
@@ -179,7 +191,7 @@ class ChannelEntry:
 
         return fragment
 
-    def decrypt_fragment(self, fragment):
+    def _decrypt_fragment(self, fragment):
         ctr = 0
 
         for key in self.sym_keys:
@@ -268,7 +280,7 @@ class ChannelMid:
         # cut the padding off
         response, _ = cut(response, -CTR_MODE_PADDING)
 
-        msg_type, response = cut(response, FLAG_LEN)
+        msg_type, response = cut(response, MSG_TYPE_FLAG_LEN)
 
         msg_ctr, _ = cut(response, CTR_PREFIX_LEN)
 

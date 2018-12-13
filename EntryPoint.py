@@ -9,10 +9,8 @@ from petlib.ec import EcPt, EcGroup
 from LinkEncryption import LinkDecryptor, LinkEncryptor
 from MixMessage import MixMessageStore
 from UDPChannel import ChannelEntry
-from constants import IPV4_LEN, PORT_LEN, SYM_KEY_LEN, CHAN_CONFIRM_MSG_FLAG
+from constants import IPV4_LEN, PORT_LEN, SYM_KEY_LEN, UDP_MTU
 from util import b2i, read_cfg_values, cut, b2ip, parse_ip_port
-
-UDP_MTU = 65535
 
 OWN_ADDR_ARG = "own_ip:port"
 MIX_ADDR_ARG = "mix_ip:port"
@@ -34,9 +32,6 @@ class EntryPoint:
         # where to send mix fragments to
         self.mix_addr = addr_to_mix
 
-        # stores mix fragments and puts them together into mix messages
-        self.mix_msg_store = MixMessageStore()
-
         # map of (src_ip:port, dest_ip:port) to channel id
         self.ips2id = dict()
 
@@ -53,7 +48,7 @@ class EntryPoint:
         """Initializes a cipher for en- and decrypting using the given keys."""
         self.pub_comps = public_keys
 
-    def handle_mix_fragment(self, response):
+    def handle_mix_response(self, response):
         """Takes a mix fragment and the channel id it came from. This
         represents a part of a response that was send back through the mix
         chain."""
@@ -61,10 +56,7 @@ class EntryPoint:
 
         channel = ChannelEntry.table[chan_id]
 
-        if msg_type == CHAN_CONFIRM_MSG_FLAG:
-            channel.chan_confirm_msg()
-        else:
-            channel.recv_response_fragment(msg_ctr + fragment)
+        channel.response(msg_type + msg_ctr + fragment)
 
         # send received responses to their respective recipients without
         # waiting
@@ -73,7 +65,7 @@ class EntryPoint:
 
             self.socket.sendto(mix_msg.payload, channel.src_addr)
 
-    def handle_request(self, request, src_addr):
+    def handle_client_request(self, request, src_addr):
         """Takes a message and the source address it came from. The destination
         header is cut off, parsed and mapped to a channel. Then the payload is
         separated into mix fragments and sent out with the channel id in front.
@@ -83,14 +75,34 @@ class EntryPoint:
         dest_addr = (b2ip(dest_ip), b2i(dest_port))
 
         if (src_addr, dest_addr) not in self.ips2id:
-            # new channel needs to be opened
-            channel = ChannelEntry(src_addr, dest_addr, self.pub_comps)
-            self.ips2id[(src_addr, dest_addr)] = channel.chan_id
+            channel = self.make_new_channel(src_addr, dest_addr)
         else:
-            channel = ChannelEntry.table[self.ips2id[src_addr, dest_addr]]
+            try:
+                channel_id = self.ips2id[src_addr, dest_addr]
+
+                channel = ChannelEntry.table[channel_id]
+            except KeyError:
+                channel = self.make_new_channel(src_addr, dest_addr)
 
         # add fragments to internal packet list
-        channel.make_request_fragments(payload)
+        channel.request(payload)
+
+    def make_new_channel(self, src_addr, dest_addr):
+        channel = ChannelEntry(src_addr, dest_addr, self.pub_comps)
+
+        self.ips2id[(src_addr, dest_addr)] = channel.chan_id
+
+        return channel
+
+    def send_messages_to_mix(self):
+        for channel in ChannelEntry.table.values():
+            while channel.can_send():
+                message = channel.get_message()
+                cipher_text = self.link_encryptor.encrypt(message)
+
+                print(self, "{}:{} - {} ->".format(*channel.src_addr, channel.chan_id), len(cipher_text))
+
+                self.socket.sendto(cipher_text, mix_addr)
 
     def run(self):
         """Starts the EntryPoint main loop, listening on the given address and
@@ -103,32 +115,11 @@ class EntryPoint:
             data, addr = self.socket.recvfrom(UDP_MTU)
 
             if addr == self.mix_addr:
-                # Got a response through the mixes
-                self.handle_mix_fragment(data)
+                self.handle_mix_response(data)
             else:
-                # got a request to send through the mixes
-                self.handle_request(data, addr)
+                self.handle_client_request(data, addr)
 
-            # send to mix
-            for channel in ChannelEntry.table.values():
-
-                if channel.allowed_to_send:
-                    while channel.packets:
-                        data_message = channel.get_data_message()
-                        cipher_text = self.link_encryptor.encrypt(data_message)
-
-                        print(self, "Data {}:{} - {} ->".format(*channel.src_addr, channel.chan_id),
-                              len(cipher_text))
-                        self.socket.sendto(cipher_text, mix_addr)
-
-                    channel.packets.clear()
-                else:
-                    init_message = channel.chan_init_msg()
-                    cipher_text = self.link_encryptor.encrypt(init_message)
-
-                    print(self, "Init {}:{} - {}".format(*channel.src_addr, channel.chan_id), "->",
-                          len(cipher_text))
-                    self.socket.sendto(cipher_text, mix_addr)
+            self.send_messages_to_mix()
 
     def __str__(self):
         return "EntryPoint"

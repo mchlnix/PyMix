@@ -1,6 +1,6 @@
 from Counter import Counter
 from ReplayDetection import ReplayDetector
-from constants import LINK_CTR_START, CTR_PREFIX_LEN, LINK_HEADER_LEN, GCM_MAC_LEN, CHAN_ID_SIZE, FLAG_LEN, RESERVED_LEN
+from constants import LINK_CTR_START, CTR_PREFIX_LEN, LINK_HEADER_LEN, GCM_MAC_LEN, CHAN_ID_SIZE, MSG_TYPE_FLAG_LEN, RESERVED_LEN
 from util import cut, gcm_cipher, b2i, get_random_bytes
 
 
@@ -13,7 +13,7 @@ class LinkEncryptor:
         self.counter.next()
 
         msg_type, chan_id, ctr_prefix, payload = cut(
-            plain_text, FLAG_LEN, CHAN_ID_SIZE, CTR_PREFIX_LEN)
+            plain_text, MSG_TYPE_FLAG_LEN, CHAN_ID_SIZE, CTR_PREFIX_LEN)
 
         reserved = get_random_bytes(RESERVED_LEN)
 
@@ -42,7 +42,7 @@ class LinkDecryptor:
         plain_header = cipher.decrypt_and_verify(header, mac)
 
         chan_id, msg_ctr, msg_type, _ = cut(
-            plain_header, CHAN_ID_SIZE, CTR_PREFIX_LEN, FLAG_LEN)
+            plain_header, CHAN_ID_SIZE, CTR_PREFIX_LEN, MSG_TYPE_FLAG_LEN)
 
         self.replay_detector.check_replay_window(link_ctr)
 
