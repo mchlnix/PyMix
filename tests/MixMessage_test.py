@@ -58,12 +58,19 @@ def test_get_data_fragment():
 
     fragment = f.get_data_fragment()
 
-    _, frag_byte, payload = cut(fragment, FRAG_ID_SIZE, FRAG_FLAG_SIZE)
+    message_id, frag_id, payload = cut(fragment, FRAG_ID_SIZE, FRAG_FLAG_SIZE)
 
-    assert b2i(frag_byte) & FragmentGenerator.LAST_FRAG_FLAG
-    assert b2i(frag_byte) == 0b0100_0000
-    assert payload[0:DATA_FRAG_PAYLOAD_SIZE] == udp_payload
-    assert len(fragment) == DATA_FRAG_PAYLOAD_SIZE + FRAG_ID_SIZE + FRAG_FLAG_SIZE
+    is_last_frag = b2i(message_id) & FragmentGenerator.LAST_FRAG_FLAG
+    has_padding = b2i(message_id) & FragmentGenerator.PADDING_FLAG
+    frag_id_is_0 = b2i(frag_id) == 0
+    payload_is_the_same = payload[0:DATA_FRAG_PAYLOAD_SIZE] == udp_payload
+    fragment_has_correct_length = len(fragment) == DATA_FRAG_PAYLOAD_SIZE + FRAG_ID_SIZE + FRAG_FLAG_SIZE
+
+    assert is_last_frag
+    assert not has_padding
+    assert frag_id_is_0
+    assert payload_is_the_same
+    assert fragment_has_correct_length
 
 
 def test_get_data_fragment_with_padding():
@@ -73,27 +80,45 @@ def test_get_data_fragment_with_padding():
 
     fragment = f.get_data_fragment()
 
-    _, frag_byte, _, payload = cut(fragment, FRAG_ID_SIZE, FRAG_FLAG_SIZE, 1)
+    expected_padding_size_length = 1
 
-    assert b2i(frag_byte) & FragmentGenerator.LAST_FRAG_FLAG
-    assert b2i(frag_byte) & FragmentGenerator.PADDING_FLAG
-    assert b2i(frag_byte) == 0b1100_0000
-    assert payload[0:DATA_FRAG_PAYLOAD_SIZE - 1] == udp_payload
-    assert len(fragment) == DATA_FRAG_PAYLOAD_SIZE + FRAG_ID_SIZE + FRAG_FLAG_SIZE
+    message_id, frag_id, _, payload = cut(fragment, FRAG_ID_SIZE, FRAG_FLAG_SIZE, expected_padding_size_length)
 
-    udp_payload = get_random_bytes(1)
+    is_last_frag = b2i(message_id) & FragmentGenerator.LAST_FRAG_FLAG
+    has_padding = b2i(message_id) & FragmentGenerator.PADDING_FLAG
+    frag_id_is_0 = b2i(frag_id) == 0
+    payload_is_the_same = payload[0:DATA_FRAG_PAYLOAD_SIZE] == udp_payload
+    fragment_has_correct_length = len(fragment) == DATA_FRAG_PAYLOAD_SIZE + FRAG_ID_SIZE + FRAG_FLAG_SIZE
+
+    assert is_last_frag
+    assert has_padding
+    assert frag_id_is_0
+    assert payload_is_the_same
+    assert fragment_has_correct_length
+
+    payload_len = 1
+
+    udp_payload = get_random_bytes(payload_len)
 
     f = FragmentGenerator(udp_payload)
 
     fragment = f.get_data_fragment()
 
-    _, frag_byte, _, payload = cut(fragment, FRAG_ID_SIZE, FRAG_FLAG_SIZE, 2)
+    expected_padding_size_length = 2
 
-    assert b2i(frag_byte) & FragmentGenerator.LAST_FRAG_FLAG
-    assert b2i(frag_byte) & FragmentGenerator.PADDING_FLAG
-    assert b2i(frag_byte) == 0b1100_0000
-    assert payload[0:1] == udp_payload
-    assert len(fragment) == DATA_FRAG_PAYLOAD_SIZE + FRAG_ID_SIZE + FRAG_FLAG_SIZE
+    message_id, frag_id, _, payload = cut(fragment, FRAG_ID_SIZE, FRAG_FLAG_SIZE, expected_padding_size_length)
+
+    is_last_frag = b2i(message_id) & FragmentGenerator.LAST_FRAG_FLAG
+    has_padding = b2i(message_id) & FragmentGenerator.PADDING_FLAG
+    frag_id_is_0 = b2i(frag_id) == 0
+    payload_is_the_same = payload[0:payload_len] == udp_payload
+    fragment_has_correct_length = len(fragment) == DATA_FRAG_PAYLOAD_SIZE + FRAG_ID_SIZE + FRAG_FLAG_SIZE
+
+    assert is_last_frag
+    assert has_padding
+    assert frag_id_is_0
+    assert payload_is_the_same
+    assert fragment_has_correct_length
 
 
 def test_parse_fragment():

@@ -26,7 +26,7 @@ def check_for_timed_out_channels(channel_table, timeout=CHANNEL_TIMEOUT_SEC, log
         channel_timed_out = (now - channel.last_interaction) > timeout
 
         if channel_timed_out:
-            print(log_prefix, "Timeout for channel", channel_id, "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+            print(log_prefix, "Timeout for channel", channel_id)
 
             timed_out.append(channel_id)
 
@@ -165,7 +165,7 @@ class ChannelEntry:
 
         self.packets.append(generator)
 
-        timed_out = check_for_timed_out_channels(ChannelEntry.table, timeout=25)
+        timed_out = check_for_timed_out_channels(ChannelEntry.table, timeout=CHANNEL_TIMEOUT_SEC-5)
 
         for channel_id in timed_out:
             del ChannelEntry.table[channel_id]

@@ -16,7 +16,7 @@ from util import b2i, i2b, get_random_bytes, cut
 #########################################
 
 
-FRAG_ID_SIZE = 4
+FRAG_ID_SIZE = 2
 DUMMY_FRAG_ID = 0
 
 FRAG_COUNT_SIZE = 1
@@ -28,7 +28,7 @@ FRAG_HEADER_SIZE = FRAG_ID_SIZE + FRAG_FLAG_SIZE
 
 MAX_FRAG_COUNT = 2 ** (FRAG_COUNT_SIZE * 8) - 1
 
-HIGHEST_ID = 2 ** (FRAG_ID_SIZE * 8) - 1
+HIGHEST_ID = 2 ** (FRAG_ID_SIZE * 8 - 2) - 1  # - 2 for last_frag and has_padding flags
 LOWEST_ID = 1
 
 DATA_FRAG_SIZE = FRAG_HEADER_SIZE + DATA_FRAG_PAYLOAD_SIZE
@@ -183,17 +183,18 @@ def padding_length_to_bytes(padding_len):
 
 
 def parse_fragment(fragment):
-    msg_id, frag_byte, rest = cut(fragment, FRAG_ID_SIZE, FRAG_FLAG_SIZE)
+    b_msg_id, b_frag_byte, rest = cut(fragment, FRAG_ID_SIZE, FRAG_FLAG_SIZE)
 
-    i_frag_byte = b2i(frag_byte)
+    message_id = b2i(b_msg_id)
 
-    fragment_id = i_frag_byte & 0b0011_1111
+    last_fragment = bool(message_id & FragmentGenerator.LAST_FRAG_FLAG)
+    has_padding = message_id & FragmentGenerator.PADDING_FLAG
 
-    is_last = (i_frag_byte & FragmentGenerator.LAST_FRAG_FLAG) == FragmentGenerator.LAST_FRAG_FLAG
+    message_id >>= 2
+
+    fragment_id = b2i(b_frag_byte)
 
     payload_len = len(rest)
-
-    has_padding = (i_frag_byte & FragmentGenerator.PADDING_FLAG) == FragmentGenerator.PADDING_FLAG
 
     if has_padding:
         padding_len, padding_bytes = bytes_to_padding_length(rest)
@@ -204,23 +205,37 @@ def parse_fragment(fragment):
     else:
         payload = rest
 
-    return b2i(msg_id), is_last, fragment_id, payload
+    return message_id, last_fragment, fragment_id, payload
 
 
 def make_fragment(message_id, fragment_number, last_fragment, payload, payload_limit):
-    if fragment_number > 0b0011_1111:
+    """
+        14 Bit message id
+         1 Bit last fragment flag
+         1 Bit has padding flag
+         8 Bit fragment number (starting at 0)
+         0 - 16 Bit Padding size
+         x Byte Payload
+         y Byte Padding
+    """
+    if fragment_number > MAX_FRAG_COUNT:
         raise ValueError("Too many fragments needed for this payload.")
 
     if not payload and message_id != DUMMY_FRAG_ID:
         raise ValueError("No more fragments left to generate.")
 
+    if message_id > HIGHEST_ID:
+        raise ValueError("Message ID too high.", message_id)
+
+    message_id <<= 2
+
     frag_byte = fragment_number
 
     if last_fragment:
-        frag_byte |= FragmentGenerator.LAST_FRAG_FLAG
+        message_id |= FragmentGenerator.LAST_FRAG_FLAG
 
     if len(payload) < payload_limit:
-        frag_byte |= FragmentGenerator.PADDING_FLAG
+        message_id |= FragmentGenerator.PADDING_FLAG
 
         padding_bytes, padding_len = padding_length_to_bytes(payload_limit - len(payload))
     else:
@@ -247,10 +262,10 @@ def make_dummy_init_fragment():
 
 
 class FragmentGenerator:
-    PADDING_FLAG = 0x80
-    LAST_FRAG_FLAG = 0x40
+    PADDING_FLAG = 0b0000_0000_0000_0001
+    LAST_FRAG_FLAG = 0b0000_0000_0000_0010
 
-    PADDING_BITMASK = 0x7F
+    PADDING_BITMASK = 0b0111_1111
 
     last_used_message_id = 0
 
