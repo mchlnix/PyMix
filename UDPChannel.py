@@ -165,7 +165,7 @@ class ChannelEntry:
 
         self.packets.append(generator)
 
-        timed_out = check_for_timed_out_channels(ChannelEntry.table, timeout=CHANNEL_TIMEOUT_SEC-5)
+        timed_out = check_for_timed_out_channels(ChannelEntry.table, timeout=CHANNEL_TIMEOUT_SEC - 5)
 
         for channel_id in timed_out:
             del ChannelEntry.table[channel_id]
@@ -386,8 +386,8 @@ class ChannelExit:
 
             try:
                 self.out_sock.send(mix_message.payload)
-            except ConnectionRefusedError as ce:
-                print("Channel", self.in_chan_id, "with address", self.out_sock)
+            except ConnectionRefusedError:
+                print("Channel", self.in_chan_id, "with address", self.out_sock, "connection refused.")
 
         self.mix_msg_store.remove_completed()
 
@@ -397,10 +397,11 @@ class ChannelExit:
             del ChannelExit.table[channel_id]
 
     def recv_response(self, response):
-        self.last_interaction = time()
         """Turns the response into a MixMessage and saves its fragments for
         later sending.
         """
+        self.last_interaction = time()
+
         frag_gen = FragmentGenerator(response)
 
         while frag_gen:

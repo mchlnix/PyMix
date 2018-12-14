@@ -36,7 +36,8 @@ with open(output_file, "w") as f:
         for key, _ in events:
             sock = key.fileobj
 
-            data = sock.recv(UDP_MTU)
+            if isinstance(sock, socket):
+                data = sock.recv(UDP_MTU)
 
-            f.write("{} {:.9f}\n".format(str(b2i(data[0:4])).rjust(7), time()))
-            f.flush()
+                f.write("{} {:.9f}\n".format(str(b2i(data[0:4])).rjust(7), time()))
+                f.flush()
