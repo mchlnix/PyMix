@@ -144,10 +144,10 @@ def bytes_to_padding_length(padding_bytes):
     bytes_read = 0
 
     for byte in padding_bytes:
-        padding += byte & 0b0111_1111
+        padding += byte & FragmentGenerator.PADDING_BITMASK
 
         bytes_read += 1
-        if byte & 0b1000_0000:
+        if byte & FragmentGenerator.PADDING_DONE_FLAG:
             break
         else:
             padding <<= 7
@@ -171,13 +171,13 @@ def padding_length_to_bytes(padding_len):
     padding_bytes = []
 
     while True:
-        padding_bytes.append(padding_len % 0b1000_0000)
+        padding_bytes.append(padding_len % FragmentGenerator.PADDING_DONE_FLAG)
         padding_len >>= 7
 
         if padding_len <= 0:
             break
 
-    padding_bytes[0] |= 0b1000_0000
+    padding_bytes[0] |= FragmentGenerator.PADDING_DONE_FLAG
 
     return bytes(padding_bytes_len - len(padding_bytes)) + bytes(reversed(padding_bytes)), ret_padding_len
 
@@ -266,6 +266,7 @@ class FragmentGenerator:
     LAST_FRAG_FLAG = 0b0000_0000_0000_0010
 
     PADDING_BITMASK = 0b0111_1111
+    PADDING_DONE_FLAG = 0b1000_0000
 
     last_used_message_id = 0
 

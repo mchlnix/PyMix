@@ -58,6 +58,7 @@ class FragmentGenerator:
     PADDING_FLAG: ClassVar[int]
     LAST_FRAG_FLAG: ClassVar[int]
     PADDING_BITMASK: ClassVar[int]
+    PADDING_DONE_FLAG: ClassVar[int]
 
     udp_payload: bytes
     message_id: int
