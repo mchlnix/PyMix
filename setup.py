@@ -4,7 +4,9 @@ setup(
     name="PyMix",
     version="0.9",
     description="MixChain implementation in Python",
-    python_requires='>=3',
+    classifiers=[
+        'Programming Language :: Python :: 3',
+        ],
     install_requires=[
         'petlib',
         'pycryptodome',
