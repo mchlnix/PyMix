@@ -2,7 +2,7 @@
 
 from MixMessage import FragmentGenerator, padding_length_to_bytes, how_many_padding_bytes_necessary, FRAG_FLAG_SIZE, \
     FRAG_ID_SIZE, bytes_to_padding_length, make_dummy_data_fragment, make_dummy_init_fragment, parse_fragment, \
-    DATA_PACKET_SIZE, INIT_PACKET_SIZE
+    DATA_PACKET_SIZE, INIT_PACKET_SIZE, SINGLE_FRAGMENT_MESSAGE_ID
 from constants import DATA_FRAG_PAYLOAD_SIZE
 from util import i2b, b2i, cut, get_random_bytes
 
@@ -58,23 +58,25 @@ def test_get_data_fragment():
 
     fragment = f.get_data_fragment()
 
-    message_id, frag_id, payload = cut(fragment, FRAG_ID_SIZE, FRAG_FLAG_SIZE)
+    message_id, padding_size, payload = cut(fragment, FRAG_ID_SIZE, 1)
 
     is_last_frag = b2i(message_id) & FragmentGenerator.LAST_FRAG_FLAG
     has_padding = b2i(message_id) & FragmentGenerator.PADDING_FLAG
-    frag_id_is_0 = b2i(frag_id) == 0
     payload_is_the_same = payload[0:DATA_FRAG_PAYLOAD_SIZE] == udp_payload
     fragment_has_correct_length = len(fragment) == DATA_FRAG_PAYLOAD_SIZE + FRAG_ID_SIZE + FRAG_FLAG_SIZE
 
+    print(payload[0:DATA_FRAG_PAYLOAD_SIZE], udp_payload)
+
     assert is_last_frag
-    assert not has_padding
-    assert frag_id_is_0
+    assert has_padding
     assert payload_is_the_same
     assert fragment_has_correct_length
 
 
 def test_get_data_fragment_with_padding():
-    udp_payload = get_random_bytes(DATA_FRAG_PAYLOAD_SIZE - 1)
+    payload_len = DATA_FRAG_PAYLOAD_SIZE - 1
+
+    udp_payload = get_random_bytes(payload_len)
 
     f = FragmentGenerator(udp_payload)
 
@@ -82,17 +84,15 @@ def test_get_data_fragment_with_padding():
 
     expected_padding_size_length = 1
 
-    message_id, frag_id, _, payload = cut(fragment, FRAG_ID_SIZE, FRAG_FLAG_SIZE, expected_padding_size_length)
+    message_id, _, payload = cut(fragment, FRAG_ID_SIZE, expected_padding_size_length)
 
     is_last_frag = b2i(message_id) & FragmentGenerator.LAST_FRAG_FLAG
     has_padding = b2i(message_id) & FragmentGenerator.PADDING_FLAG
-    frag_id_is_0 = b2i(frag_id) == 0
-    payload_is_the_same = payload[0:DATA_FRAG_PAYLOAD_SIZE] == udp_payload
+    payload_is_the_same = payload[0:payload_len] == udp_payload
     fragment_has_correct_length = len(fragment) == DATA_FRAG_PAYLOAD_SIZE + FRAG_ID_SIZE + FRAG_FLAG_SIZE
 
     assert is_last_frag
     assert has_padding
-    assert frag_id_is_0
     assert payload_is_the_same
     assert fragment_has_correct_length
 
@@ -106,17 +106,15 @@ def test_get_data_fragment_with_padding():
 
     expected_padding_size_length = 2
 
-    message_id, frag_id, _, payload = cut(fragment, FRAG_ID_SIZE, FRAG_FLAG_SIZE, expected_padding_size_length)
+    message_id, _, payload = cut(fragment, FRAG_ID_SIZE, expected_padding_size_length)
 
     is_last_frag = b2i(message_id) & FragmentGenerator.LAST_FRAG_FLAG
     has_padding = b2i(message_id) & FragmentGenerator.PADDING_FLAG
-    frag_id_is_0 = b2i(frag_id) == 0
     payload_is_the_same = payload[0:payload_len] == udp_payload
     fragment_has_correct_length = len(fragment) == DATA_FRAG_PAYLOAD_SIZE + FRAG_ID_SIZE + FRAG_FLAG_SIZE
 
     assert is_last_frag
     assert has_padding
-    assert frag_id_is_0
     assert payload_is_the_same
     assert fragment_has_correct_length
 
@@ -130,7 +128,7 @@ def test_parse_fragment():
 
     msg_id, is_last, fragment_id, payload = parse_fragment(fragment)
 
-    assert msg_id == f.message_id
+    assert msg_id == SINGLE_FRAGMENT_MESSAGE_ID
     assert is_last
     assert fragment_id == 0
     assert udp_payload == payload
@@ -186,7 +184,7 @@ def test_get_init_fragment():
 
     msg_id, is_last, fragment_id, payload = parse_fragment(fragment)
 
-    assert msg_id == f.message_id
+    assert msg_id == SINGLE_FRAGMENT_MESSAGE_ID
     assert is_last
     assert fragment_id == 0
     assert udp_payload == payload
@@ -197,7 +195,7 @@ def test_make_dummy_data_fragment():
 
     msg_id, is_last, fragment_id, payload = parse_fragment(fragment)
 
-    assert msg_id == 0
+    assert msg_id == SINGLE_FRAGMENT_MESSAGE_ID
     assert fragment_id == 0
     assert is_last
     assert payload == bytes()
@@ -208,7 +206,7 @@ def test_make_dummy_init_fragment():
 
     msg_id, is_last, fragment_id, payload = parse_fragment(fragment)
 
-    assert msg_id == 0
+    assert msg_id == SINGLE_FRAGMENT_MESSAGE_ID
     assert fragment_id == 0
     assert is_last
     assert payload == bytes()

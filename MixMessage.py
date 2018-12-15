@@ -31,6 +31,8 @@ MAX_FRAG_COUNT = 2 ** (FRAG_COUNT_SIZE * 8) - 1
 HIGHEST_ID = 2 ** (FRAG_ID_SIZE * 8 - 2) - 1  # - 2 for last_frag and has_padding flags
 LOWEST_ID = 1
 
+SINGLE_FRAGMENT_MESSAGE_ID = 0
+
 DATA_FRAG_SIZE = FRAG_HEADER_SIZE + DATA_FRAG_PAYLOAD_SIZE
 INIT_FRAG_SIZE = FRAG_HEADER_SIZE + INIT_FRAG_PAYLOAD_SIZE
 
@@ -183,7 +185,7 @@ def padding_length_to_bytes(padding_len):
 
 
 def parse_fragment(fragment):
-    b_msg_id, b_frag_byte, rest = cut(fragment, FRAG_ID_SIZE, FRAG_FLAG_SIZE)
+    b_msg_id, rest = cut(fragment, FRAG_ID_SIZE)
 
     message_id = b2i(b_msg_id)
 
@@ -192,7 +194,11 @@ def parse_fragment(fragment):
 
     message_id >>= 2
 
-    fragment_id = b2i(b_frag_byte)
+    if message_id != SINGLE_FRAGMENT_MESSAGE_ID:
+        frag_byte, rest = cut(rest, FRAG_FLAG_SIZE)
+        fragment_id = b2i(frag_byte)
+    else:
+        fragment_id = 0
 
     payload_len = len(rest)
 
@@ -227,9 +233,16 @@ def make_fragment(message_id, fragment_number, last_fragment, payload, payload_l
     if message_id > HIGHEST_ID:
         raise ValueError("Message ID too high.", message_id)
 
-    message_id <<= 2
+    no_frag_number_necessary = fragment_number == 0 and last_fragment
 
-    frag_byte = fragment_number
+    if no_frag_number_necessary:
+        frag_byte = bytes(0)
+        payload_limit += 1
+        message_id = SINGLE_FRAGMENT_MESSAGE_ID
+    else:
+        frag_byte = i2b(fragment_number, FRAG_FLAG_SIZE)
+
+    message_id <<= 2
 
     if last_fragment:
         message_id |= FragmentGenerator.LAST_FRAG_FLAG
@@ -242,7 +255,7 @@ def make_fragment(message_id, fragment_number, last_fragment, payload, payload_l
         padding_len = 0
         padding_bytes = bytes()
 
-    fragment = i2b(message_id, FRAG_ID_SIZE) + i2b(frag_byte, FRAG_FLAG_SIZE)
+    fragment = i2b(message_id, FRAG_ID_SIZE) + frag_byte
 
     fragment += padding_bytes
 
