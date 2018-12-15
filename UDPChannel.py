@@ -33,6 +33,14 @@ def check_for_timed_out_channels(channel_table, timeout=CHANNEL_TIMEOUT_SEC, log
     return timed_out
 
 
+def create_packet(channel_id, message_type, message_counter, payload):
+
+    if isinstance(message_counter, Counter):
+        message_counter = bytes(message_counter)
+
+    return i2b(channel_id, CHAN_ID_SIZE) + message_type + message_counter + payload
+
+
 class ChannelEntry:
     out_chan_list = []
     to_mix = []
@@ -43,7 +51,6 @@ class ChannelEntry:
         self.src_addr = src_addr
         self.dest_addr = dest_addr
         self.chan_id = ChannelEntry.random_channel()
-        self.b_chan_id = i2b(self.chan_id, CHAN_ID_SIZE)
 
         self.pub_comps = pub_comps
 
@@ -117,15 +124,17 @@ class ChannelEntry:
         print(self, "Init", "->", len(channel_init))
 
         # we send a counter value with init messages for channel replay detection only
-        return CHAN_INIT_MSG_FLAG + self.b_chan_id + bytes(self.request_counter) + channel_init
+        return create_packet(self.chan_id, CHAN_INIT_MSG_FLAG, self.request_counter, channel_init)
 
     def _get_data_message(self):
         # todo make into generator
         fragment = self._get_data_fragment()
 
-        print(self, "Data", "->", len(fragment) - CTR_PREFIX_LEN)
+        message_counter, payload = cut(fragment, CTR_PREFIX_LEN)
 
-        return DATA_MSG_FLAG + self.b_chan_id + fragment
+        print(self, "Data", "->", len(payload))
+
+        return create_packet(self.chan_id, DATA_MSG_FLAG, message_counter, payload)
 
     def _get_init_fragment(self):
         # todo make into generator
@@ -262,9 +271,13 @@ class ChannelMid:
 
         forward_msg = cipher.decrypt(cipher_text) + get_random_bytes(CTR_MODE_PADDING)
 
-        print(self, "Data", "->", len(forward_msg) - CTR_PREFIX_LEN)
+        message_counter, payload = cut(forward_msg, CTR_PREFIX_LEN)
 
-        ChannelMid.requests.append(DATA_MSG_FLAG + i2b(self.out_chan_id, CHAN_ID_SIZE) + forward_msg)
+        print(self, "Data", "->", len(payload))
+
+        packet = create_packet(self.out_chan_id, DATA_MSG_FLAG, message_counter, payload)
+
+        ChannelMid.requests.append(packet)
 
         timed_out = check_for_timed_out_channels(ChannelMid.table_in)
 
@@ -296,7 +309,7 @@ class ChannelMid:
 
         print(self, "Data", "<-", len(forward_msg))
 
-        response = msg_type + i2b(self.in_chan_id, CHAN_ID_SIZE) + bytes(self.response_counter) + forward_msg
+        response = create_packet(self.in_chan_id, msg_type, self.response_counter, forward_msg)
 
         ChannelMid.responses.append(response)
 
@@ -319,13 +332,11 @@ class ChannelMid:
 
         print(self, "Init", "->", len(channel_init))
 
-        channel_init = msg_ctr + channel_init
-
         # we add an empty ctr prefix, because the link encryption expects there
         # to be one, even though the channel init wasn't sym encrypted
 
         # todo look at this one again
-        packet = CHAN_INIT_MSG_FLAG + i2b(self.out_chan_id, CHAN_ID_SIZE) + channel_init
+        packet = create_packet(self.out_chan_id, CHAN_INIT_MSG_FLAG, msg_ctr, channel_init)
 
         ChannelMid.requests.append(packet)
 
@@ -407,9 +418,9 @@ class ChannelExit:
             print(self, "Data", "<-", len(frag_gen.udp_payload))
 
             fragment = frag_gen.get_data_fragment()
-            packet = fragment + get_random_bytes(MIX_COUNT * CTR_PREFIX_LEN)
+            packet = create_packet(self.in_chan_id, DATA_MSG_FLAG, fragment[0:CTR_PREFIX_LEN], fragment[CTR_PREFIX_LEN:] + get_random_bytes(MIX_COUNT * CTR_PREFIX_LEN))
 
-            ChannelExit.to_mix.append(DATA_MSG_FLAG + i2b(self.in_chan_id, CHAN_ID_SIZE) + packet)
+            ChannelExit.to_mix.append(packet)
 
     def parse_channel_init(self, channel_init):
         self.last_interaction = time()
@@ -438,8 +449,11 @@ class ChannelExit:
         self.recv_request(fragment)
 
     def send_chan_confirm(self):
-        print(self, "Init", "<-", "len:", DATA_PACKET_SIZE)
-        ChannelExit.to_mix.append(CHAN_CONFIRM_MSG_FLAG + i2b(self.in_chan_id, CHAN_ID_SIZE) + bytes(CTR_PREFIX_LEN) + get_random_bytes(DATA_PACKET_SIZE))
+        packet = create_packet(self.in_chan_id, CHAN_CONFIRM_MSG_FLAG, bytes(CTR_PREFIX_LEN), get_random_bytes(DATA_PACKET_SIZE))
+
+        print(self, "Init", "<-", "len:", len(packet))
+
+        ChannelExit.to_mix.append(packet)
 
     def __str__(self):
         return "ChannelExit {} - {}:{}:".format(self.in_chan_id, *self.dest_addr)

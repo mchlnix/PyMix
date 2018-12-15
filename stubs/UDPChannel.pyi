@@ -1,6 +1,6 @@
 from selectors import DefaultSelector
 from socket import socket
-from typing import List, Dict, ClassVar, Optional
+from typing import List, Dict, ClassVar, Optional, Union
 
 from Types import AddressTuple
 from petlib.bn import Bn
@@ -15,6 +15,8 @@ def check_for_timed_out_channels(channel_table: dict,
                                  timeout:Optional[int]=...,
                                  log_prefix:Optional[str]=... ) -> List[int]: ...
 
+def create_packet(channel_id: int, message_type: bytes, message_counter: Union[bytes, Counter], payload: bytes) -> bytes: ...
+
 class ChannelEntry:
     out_chan_list: ClassVar[List[int]]
     to_mix: ClassVar[List[bytes]]
@@ -24,7 +26,6 @@ class ChannelEntry:
     src_addr: AddressTuple
     dest_addr: AddressTuple
     chan_id: int
-    b_chan_id: bytes
 
     pub_comps: List[EcPt]
     sym_keys: List[bytes]

@@ -12,8 +12,8 @@ class LinkEncryptor:
     def encrypt(self, plain_text):
         self.counter.next()
 
-        msg_type, chan_id, ctr_prefix, payload = cut(
-            plain_text, MSG_TYPE_FLAG_LEN, CHAN_ID_SIZE, CTR_PREFIX_LEN)
+        chan_id, msg_type, ctr_prefix, payload = cut(
+            plain_text, CHAN_ID_SIZE, MSG_TYPE_FLAG_LEN, CTR_PREFIX_LEN)
 
         reserved = get_random_bytes(RESERVED_LEN)
 
