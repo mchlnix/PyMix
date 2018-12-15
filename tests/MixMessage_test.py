@@ -162,6 +162,21 @@ def test_get_data_fragment_2_fragments():
     assert udp_payload == fragmented_payload
 
 
+def test_get_data_fragment_single_fragment():
+    udp_payload = get_random_bytes(DATA_FRAG_PAYLOAD_SIZE + 1)
+
+    f = FragmentGenerator(udp_payload)
+
+    fragment = f.get_data_fragment()
+
+    msg_id, is_last, fragment_id, payload = parse_fragment(fragment)
+
+    assert msg_id == SINGLE_FRAGMENT_MESSAGE_ID
+    assert fragment_id == 0
+    assert is_last
+    assert payload == udp_payload
+
+
 def test_get_data_fragment_too_many():
     udp_payload = get_random_bytes(400)
 

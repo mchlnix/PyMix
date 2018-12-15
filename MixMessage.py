@@ -233,12 +233,13 @@ def make_fragment(message_id, fragment_number, last_fragment, payload, payload_l
     if message_id > HIGHEST_ID:
         raise ValueError("Message ID too high.", message_id)
 
-    no_frag_number_necessary = fragment_number == 0 and last_fragment
+    no_frag_number_necessary = fragment_number == 0 and len(payload) <= payload_limit + 1
 
     if no_frag_number_necessary:
         frag_byte = bytes(0)
         payload_limit += 1
         message_id = SINGLE_FRAGMENT_MESSAGE_ID
+        last_fragment = True
     else:
         frag_byte = i2b(fragment_number, FRAG_FLAG_SIZE)
 
@@ -261,17 +262,17 @@ def make_fragment(message_id, fragment_number, last_fragment, payload, payload_l
 
     fragment += payload[:payload_limit] + get_random_bytes(padding_len)
 
-    return fragment
+    return fragment, payload_limit - padding_len
 
 
 def make_dummy_data_fragment():
     return make_fragment(0x0, 0x0, True, bytes(0),
-                         DATA_FRAG_PAYLOAD_SIZE)
+                         DATA_FRAG_PAYLOAD_SIZE)[0]
 
 
 def make_dummy_init_fragment():
     return make_fragment(0x0, 0x0, True, bytes(0),
-                         INIT_FRAG_PAYLOAD_SIZE)
+                         INIT_FRAG_PAYLOAD_SIZE)[0]
 
 
 class FragmentGenerator:
@@ -300,12 +301,14 @@ class FragmentGenerator:
     def _build_fragment(self, payload_limit):
         is_last_fragment = len(self.udp_payload) <= payload_limit
 
-        payload, self.udp_payload = cut(self.udp_payload, payload_limit)
-
         fragment_number = self.current_fragment
         self.current_fragment += 1
 
-        return make_fragment(self.message_id, fragment_number, is_last_fragment, payload, payload_limit)
+        fragment, payload_len = make_fragment(self.message_id, fragment_number, is_last_fragment, self.udp_payload, payload_limit)
+
+        self.udp_payload = self.udp_payload[payload_len:]
+
+        return fragment
 
     def __bool__(self):
         return len(self.udp_payload) > 0
