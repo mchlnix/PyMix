@@ -1,6 +1,8 @@
 # PyMix
 A mix chain implementation in Python, using UDP
 
+[![Total alerts](https://img.shields.io/lgtm/alerts/g/mchlnix/PyMix.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/mchlnix/PyMix/alerts/) [![Language grade: Python](https://img.shields.io/lgtm/grade/python/g/mchlnix/PyMix.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/mchlnix/PyMix/context:python)
+
 ## What are Mixes?
 
 A mix server commonly accumulates `n` messages, reorders them and then sends them all out at the same time. 
