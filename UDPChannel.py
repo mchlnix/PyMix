@@ -104,7 +104,7 @@ class ChannelEntry:
         return packets
 
     def _get_init_message(self):
-        self.request_counter.next()
+        self.request_counter.count()
 
         ip, port = self.dest_addr
 
@@ -180,7 +180,7 @@ class ChannelEntry:
             return
 
     def _encrypt_fragment(self, fragment):
-        self.request_counter.next()
+        self.request_counter.count()
 
         for key in reversed(self.sym_keys):
             counter = self.request_counter
@@ -288,7 +288,7 @@ class ChannelMid:
         if msg_ctr != bytes(CTR_PREFIX_LEN):
             self.response_replay_detector.check_replay_window(b2i(msg_ctr))
 
-        self.response_counter.next()
+        self.response_counter.count()
 
         cipher = ctr_cipher(self.key, int(self.response_counter))
 

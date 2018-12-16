@@ -40,4 +40,4 @@ def test_next():
     for i in range(0, 10000):
         assert i == int(counter)
 
-        counter.next()
+        counter.count()
