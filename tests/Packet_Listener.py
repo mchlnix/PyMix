@@ -19,7 +19,7 @@ for port_number in argv[2:]:
     socket_selector.register(listener_socket, EVENT_READ)
 
 
-def set_killed(signal, stackframe):
+def set_killed(_signal, _stackframe):
     global killed
 
     killed = True

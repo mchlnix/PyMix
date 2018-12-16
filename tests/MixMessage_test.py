@@ -17,8 +17,7 @@ paddings = {0: bytes(0),
             257: i2b(0b0000_0001_1111_1111, 2),
             258: i2b(0b0000_0010_1000_0000, 2),
             271: i2b(0b0000_0010_1000_1101, 2),
-            272: i2b(0b0000_0010_1000_1110, 2),
-            }
+            272: i2b(0b0000_0010_1000_1110, 2)}
 
 assert INIT_PACKET_SIZE == DATA_PACKET_SIZE
 
@@ -58,7 +57,7 @@ def test_get_data_fragment():
 
     fragment = f.get_data_fragment()
 
-    message_id, padding_size, payload = cut(fragment, FRAG_ID_SIZE, 1)
+    message_id, _, payload = cut(fragment, FRAG_ID_SIZE, 1)
 
     is_last_frag = b2i(message_id) & FragmentGenerator.LAST_FRAG_FLAG
     has_padding = b2i(message_id) & FragmentGenerator.PADDING_FLAG

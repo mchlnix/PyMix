@@ -1,3 +1,4 @@
+from socket import socket
 from typing import List, Dict, Tuple
 
 from Types import AddressTuple
@@ -13,7 +14,7 @@ class EntryPoint:
     mix_addr: AddressTuple
     ips2id: Dict[Tuple[AddressTuple, AddressTuple], int]
     pub_comps: List[EcPt]
-    socket: socket
+    listener_socket: socket
 
     link_decryptor: LinkDecryptor
     link_encryptor: LinkEncryptor

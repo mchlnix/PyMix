@@ -70,14 +70,11 @@ class MixMessageStore:
     def pop(self):
         for msg_id, packet in self.packets.items():
             if packet.complete:
-                break
-        else:
-            raise IndexError("No completed packets.")
+                msg_id, packet = self.packets.pop(msg_id)
 
-        # msg_id still exists after for loop
-        msg_id, packet = self.packets.pop(msg_id)
+                return packet
 
-        return packet
+        raise IndexError("No completed packets.")
 
     def remove(self, msg_id):
         del self.packets[msg_id]

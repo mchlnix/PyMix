@@ -146,6 +146,6 @@ if __name__ == "__main__":
 
     next_hop_addr = (next_ip, int(next_port))
 
-    mix = Mix(secret, listen_addr, next_hop_addr)
+    mix = Mix(secret, listen_addr, 1)
 
     mix.run()

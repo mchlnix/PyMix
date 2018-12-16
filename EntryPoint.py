@@ -38,7 +38,7 @@ class EntryPoint:
         self.pub_comps = []
 
         # the socket we listen for packet on
-        self.socket = None
+        self.listener_socket = None
 
         self.link_decryptor = LinkDecryptor(bytes(SYM_KEY_LEN))
         self.link_encryptor = LinkEncryptor(bytes(SYM_KEY_LEN))
@@ -62,7 +62,7 @@ class EntryPoint:
         for mix_msg in channel.get_completed_responses():
             print(self, "Data {}:{} - {} <- {}".format(*channel.src_addr, channel.chan_id, len(mix_msg.payload)))
 
-            self.socket.sendto(mix_msg.payload, channel.src_addr)
+            self.listener_socket.sendto(mix_msg.payload, channel.src_addr)
 
     def handle_client_request(self, request, src_addr):
         """Takes a message and the source address it came from. The destination
@@ -102,17 +102,17 @@ class EntryPoint:
 
                 print(self, "{}:{} - {} ->".format(*channel.src_addr, channel.chan_id), len(cipher_text))
 
-                self.socket.sendto(cipher_text, mix_addr)
+                self.listener_socket.sendto(cipher_text, mix_addr)
 
     def run(self):
         """Starts the EntryPoint main loop, listening on the given address and
         converting/relaying messages."""
-        self.socket = socket(AF_INET, UDP)
-        self.socket.bind(own_addr)
+        self.listener_socket = socket(AF_INET, UDP)
+        self.listener_socket.bind(own_addr)
 
         print(self, "Listening on {}:{}.".format(*own_addr))
         while True:
-            data, addr = self.socket.recvfrom(UDP_MTU)
+            data, addr = self.listener_socket.recvfrom(UDP_MTU)
 
             if addr == self.mix_addr:
                 self.handle_mix_response(data)
