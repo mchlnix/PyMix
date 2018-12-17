@@ -55,6 +55,10 @@ with open("/tmp/blub.csv", "w") as f:
     for key in cntr.keys():
         f.write("{},{}\n".format(key, cntr[key]))
 
-for key, value in delays.items():
-    if value >= 1 or value <= 1 / 1000.0:
-        print(key, value)
+over_1sec = [(index, delay) for index, delay in delays.items() if delay >= 1]
+
+if over_1sec:
+    print("Packets with more than one second delay:")
+
+    for index, delay in over_1sec:
+        print(index, delay)
