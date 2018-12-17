@@ -259,7 +259,7 @@ def make_fragment(message_id, fragment_number, last_fragment, payload, payload_l
 
     fragment += payload[:payload_limit] + get_random_bytes(padding_len)
 
-    return fragment, payload_limit - padding_len
+    return fragment, payload_limit - (len(padding_bytes) + padding_len)
 
 
 def make_dummy_data_fragment():

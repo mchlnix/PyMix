@@ -2,7 +2,7 @@
 
 from MixMessage import FragmentGenerator, padding_length_to_bytes, how_many_padding_bytes_necessary, FRAG_FLAG_SIZE, \
     FRAG_ID_SIZE, bytes_to_padding_length, make_dummy_data_fragment, make_dummy_init_fragment, parse_fragment, \
-    DATA_PACKET_SIZE, INIT_PACKET_SIZE, SINGLE_FRAGMENT_MESSAGE_ID
+    DATA_PACKET_SIZE, INIT_PACKET_SIZE, SINGLE_FRAGMENT_MESSAGE_ID, make_fragment
 from constants import DATA_FRAG_PAYLOAD_SIZE
 from util import i2b, b2i, cut, get_random_bytes
 
@@ -202,6 +202,14 @@ def test_get_init_fragment():
     assert is_last
     assert fragment_id == 0
     assert udp_payload == payload
+
+
+def test_make_fragment():
+    for payload_length in range(1, DATA_FRAG_PAYLOAD_SIZE + 2):
+        fragment, length = make_fragment(1234, 0, True, bytes(payload_length), DATA_FRAG_PAYLOAD_SIZE)
+
+        assert length == payload_length
+        assert len(fragment) == FRAG_ID_SIZE + FRAG_FLAG_SIZE + DATA_FRAG_PAYLOAD_SIZE
 
 
 def test_make_dummy_data_fragment():
