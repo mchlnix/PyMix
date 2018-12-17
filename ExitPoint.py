@@ -46,6 +46,9 @@ class ExitPoint:
                     # the only socket without a channel is the mix socket
                     sock = key.fileobj
 
+                    if isinstance(sock, int):
+                        continue
+
                     # we assume the first received message will be from the mix
                     if self.mix_addr is None:
                         packet, self.mix_addr = sock.recvfrom(UDP_MTU)

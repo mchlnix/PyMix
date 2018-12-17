@@ -1,6 +1,6 @@
 from selectors import DefaultSelector
 from socket import socket
-from typing import List, Dict, ClassVar, Optional
+from typing import List, Dict, ClassVar, Optional, Union
 
 from Types import AddressTuple
 from petlib.bn import Bn
@@ -11,7 +11,7 @@ from MixMessage import MixMessage, MixMessageStore, FragmentGenerator
 from ReplayDetection import ReplayDetector
 
 
-def check_for_timed_out_channels(channel_table: dict,
+def check_for_timed_out_channels(channel_table: Dict[int, Union[ChannelEntry, ChannelMid, ChannelExit]],
                                  timeout:Optional[int]=...,
                                  log_prefix:Optional[str]=... ) -> List[int]: ...
 
