@@ -180,7 +180,7 @@ def gen_ctr_prefix():
 
 def ctr_cipher(key, counter):
     # nbits = 8 bytes + prefix = 8 bytes
-    ctr = Counter.new(nbits=64, prefix=i2b(counter, CTR_PREFIX_LEN))
+    ctr = Counter.new(nbits=64, initial_value=0, prefix=i2b(counter, CTR_PREFIX_LEN))
     return AES.new(key, AES.MODE_CTR, counter=ctr)
 
 
