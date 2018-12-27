@@ -230,7 +230,7 @@ class ChannelMid:
     table_out = dict()
     table_in = dict()
 
-    def __init__(self, in_chan_id):
+    def __init__(self, in_chan_id, check_responses=True):
         self.in_chan_id = in_chan_id
         self.out_chan_id = ChannelMid.random_channel()
 
@@ -241,7 +241,10 @@ class ChannelMid:
 
         self.key = None
         self.request_replay_detector = ReplayDetector(start=CHANNEL_CTR_START)
-        self.response_replay_detector = ReplayDetector(start=CHANNEL_CTR_START)
+        if check_responses:
+            self.response_replay_detector = ReplayDetector(start=CHANNEL_CTR_START)
+        else:
+            self.response_replay_detector = None
 
         self.response_counter = Counter(CHANNEL_CTR_START)
 
@@ -284,8 +287,7 @@ class ChannelMid:
 
         msg_ctr, _ = cut(response, CTR_PREFIX_LEN)
 
-        # todo find better way
-        if msg_ctr != bytes(CTR_PREFIX_LEN):
+        if self.response_replay_detector is not None:
             self.response_replay_detector.check_replay_window(b2i(msg_ctr))
 
         self.response_counter.count()

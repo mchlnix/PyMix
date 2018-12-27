@@ -15,7 +15,7 @@ STORE_LIMIT = 1
 
 
 class Mix:
-    def __init__(self, secret, own_addr, next_addr):
+    def __init__(self, secret, own_addr, next_addr, check_responses=True):
         # set up crypto
         # decrypt for messages from a client
         # encrypt for responses to the client
@@ -37,6 +37,8 @@ class Mix:
         self.response_link_encryptor = LinkEncryptor(bytes(SYM_KEY_LEN))
         self.request_link_decryptor = LinkDecryptor(bytes(SYM_KEY_LEN))
         self.response_link_decryptor = LinkDecryptor(bytes(SYM_KEY_LEN))
+
+        self.check_responses = check_responses
 
         print(self, "listening on {}:{}".format(*own_addr))
 
@@ -65,7 +67,7 @@ class Mix:
                 print(self, "Duplicate channel initialization for", in_id)
                 channel = ChannelMid.table_in[in_id]
             else:
-                channel = ChannelMid(in_id)
+                channel = ChannelMid(in_id, self.check_responses)
 
             channel.parse_channel_init(msg_ctr + fragment, self.priv_comp)
 
@@ -137,7 +139,7 @@ if __name__ == "__main__":
 
     # get configurations
 
-    listen_ip, listen_port, next_ip, next_port, secret_file = read_cfg_values(args.config)
+    last_mix, listen_ip, listen_port, next_ip, next_port, secret_file = read_cfg_values(args.config)
 
     with open("config/" + secret_file, "rb") as f:
         secret = Bn.from_binary(f.read())
@@ -146,6 +148,6 @@ if __name__ == "__main__":
 
     next_hop_addr = (next_ip, int(next_port))
 
-    mix = Mix(secret, listen_addr, next_hop_addr)
+    mix = Mix(secret, listen_addr, next_hop_addr, last_mix != "true")
 
     mix.run()
