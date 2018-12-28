@@ -112,7 +112,7 @@ class ChannelEntry:
 
         fragment = self._get_init_fragment()
 
-        channel_init = gen_init_msg(self.pub_comps, self.sym_keys, destination + fragment)
+        channel_init = gen_init_msg(self.pub_comps, self.request_counter.current_value, self.sym_keys, destination + fragment)
 
         print(self, "Init", "->", len(channel_init))
 
@@ -311,7 +311,7 @@ class ChannelMid:
 
         self.request_replay_detector.check_replay_window(b2i(msg_ctr))
 
-        sym_key, _, channel_init = process(priv_comp, channel_init)
+        sym_key, _, channel_init = process(priv_comp, b2i(msg_ctr), channel_init)
 
         if self.key is not None:
             assert self.key == sym_key

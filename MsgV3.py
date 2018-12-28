@@ -19,7 +19,7 @@ def get_pub_key(private_key):
     return group_expon(private_key)
 
 
-def gen_init_msg(pub_mix_keys, channel_keys, payload):
+def gen_init_msg(pub_mix_keys, message_counter, channel_keys, payload):
     assert len(pub_mix_keys) == len(channel_keys)
 
     y_mix_1, y_mix_2, y_mix_3 = pub_mix_keys
@@ -40,7 +40,7 @@ def gen_init_msg(pub_mix_keys, channel_keys, payload):
     payload_onion = payload
 
     for k_disp, k_chan in zip([k_disp_3, k_disp_2, k_disp_1], reversed(channel_keys)):
-        cipher = ctr_cipher(params.get_aes_key(k_disp), 0)
+        cipher = ctr_cipher(params.get_aes_key(k_disp), message_counter)
 
         chan_key_onion = cipher.encrypt(k_chan + chan_key_onion[0:-SYM_KEY_LEN])
 
@@ -54,12 +54,12 @@ def gen_blind(secret):
     return params.hb(params.get_aes_key(secret))
 
 
-def process(priv_mix_key, message):
+def process(priv_mix_key, message_counter, message):
     y_msg, chan_key_onion, payload_onion = cut_init_message(message)
 
     k_disp = params.group.expon(y_msg, [priv_mix_key])
 
-    cipher = ctr_cipher(params.get_aes_key(k_disp), 0)
+    cipher = ctr_cipher(params.get_aes_key(k_disp), message_counter)
 
     k_chan, chan_key_onion = cut(cipher.decrypt(chan_key_onion), SYM_KEY_LEN)
 
