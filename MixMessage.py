@@ -16,7 +16,7 @@ from util import b2i, i2b, get_random_bytes, cut
 #########################################
 
 
-FRAG_ID_SIZE = 4
+FRAG_ID_SIZE = 2
 DUMMY_FRAG_ID = 0
 
 FRAG_COUNT_SIZE = 1
@@ -28,8 +28,10 @@ FRAG_HEADER_SIZE = FRAG_ID_SIZE + FRAG_FLAG_SIZE
 
 MAX_FRAG_COUNT = 2 ** (FRAG_COUNT_SIZE * 8) - 1
 
-HIGHEST_ID = 2 ** (FRAG_ID_SIZE * 8) - 1
+HIGHEST_ID = 2 ** (FRAG_ID_SIZE * 8 - 2) - 1  # - 2 for last_frag and has_padding flags
 LOWEST_ID = 1
+
+SINGLE_FRAGMENT_MESSAGE_ID = 0
 
 DATA_FRAG_SIZE = FRAG_HEADER_SIZE + DATA_FRAG_PAYLOAD_SIZE
 INIT_FRAG_SIZE = FRAG_HEADER_SIZE + INIT_FRAG_PAYLOAD_SIZE
@@ -68,14 +70,11 @@ class MixMessageStore:
     def pop(self):
         for msg_id, packet in self.packets.items():
             if packet.complete:
-                break
-        else:
-            raise IndexError("No completed packets.")
+                msg_id, packet = self.packets.pop(msg_id)
 
-        # msg_id still exists after for loop
-        msg_id, packet = self.packets.pop(msg_id)
+                return packet
 
-        return packet
+        raise IndexError("No completed packets.")
 
     def remove(self, msg_id):
         del self.packets[msg_id]
@@ -144,10 +143,10 @@ def bytes_to_padding_length(padding_bytes):
     bytes_read = 0
 
     for byte in padding_bytes:
-        padding += byte & 0b0111_1111
+        padding += byte & FragmentGenerator.PADDING_BITMASK
 
         bytes_read += 1
-        if byte & 0b1000_0000:
+        if byte & FragmentGenerator.PADDING_DONE_FLAG:
             break
         else:
             padding <<= 7
@@ -171,29 +170,34 @@ def padding_length_to_bytes(padding_len):
     padding_bytes = []
 
     while True:
-        padding_bytes.append(padding_len % 0b1000_0000)
+        padding_bytes.append(padding_len % FragmentGenerator.PADDING_DONE_FLAG)
         padding_len >>= 7
 
         if padding_len <= 0:
             break
 
-    padding_bytes[0] |= 0b1000_0000
+    padding_bytes[0] |= FragmentGenerator.PADDING_DONE_FLAG
 
     return bytes(padding_bytes_len - len(padding_bytes)) + bytes(reversed(padding_bytes)), ret_padding_len
 
 
 def parse_fragment(fragment):
-    msg_id, frag_byte, rest = cut(fragment, FRAG_ID_SIZE, FRAG_FLAG_SIZE)
+    b_msg_id, rest = cut(fragment, FRAG_ID_SIZE)
 
-    i_frag_byte = b2i(frag_byte)
+    message_id = b2i(b_msg_id)
 
-    fragment_id = i_frag_byte & 0b0011_1111
+    last_fragment = bool(message_id & FragmentGenerator.LAST_FRAG_FLAG)
+    has_padding = message_id & FragmentGenerator.PADDING_FLAG
 
-    is_last = (i_frag_byte & FragmentGenerator.LAST_FRAG_FLAG) == FragmentGenerator.LAST_FRAG_FLAG
+    message_id >>= 2
+
+    if message_id != SINGLE_FRAGMENT_MESSAGE_ID:
+        frag_byte, rest = cut(rest, FRAG_FLAG_SIZE)
+        fragment_id = b2i(frag_byte)
+    else:
+        fragment_id = 0
 
     payload_len = len(rest)
-
-    has_padding = (i_frag_byte & FragmentGenerator.PADDING_FLAG) == FragmentGenerator.PADDING_FLAG
 
     if has_padding:
         padding_len, padding_bytes = bytes_to_padding_length(rest)
@@ -204,53 +208,76 @@ def parse_fragment(fragment):
     else:
         payload = rest
 
-    return b2i(msg_id), is_last, fragment_id, payload
+    return message_id, last_fragment, fragment_id, payload
 
 
 def make_fragment(message_id, fragment_number, last_fragment, payload, payload_limit):
-    if fragment_number > 0b0011_1111:
+    """
+        14 Bit message id
+         1 Bit last fragment flag
+         1 Bit has padding flag
+         8 Bit fragment number (starting at 0)
+         0 - 16 Bit Padding size
+         x Byte Payload
+         y Byte Padding
+    """
+    if fragment_number > MAX_FRAG_COUNT:
         raise ValueError("Too many fragments needed for this payload.")
 
     if not payload and message_id != DUMMY_FRAG_ID:
         raise ValueError("No more fragments left to generate.")
 
-    frag_byte = fragment_number
+    if message_id > HIGHEST_ID:
+        raise ValueError("Message ID too high.", message_id)
+
+    no_frag_number_necessary = fragment_number == 0 and len(payload) <= payload_limit + 1
+
+    if no_frag_number_necessary:
+        frag_byte = bytes(0)
+        payload_limit += 1
+        message_id = SINGLE_FRAGMENT_MESSAGE_ID
+        last_fragment = True
+    else:
+        frag_byte = i2b(fragment_number, FRAG_FLAG_SIZE)
+
+    message_id <<= 2
 
     if last_fragment:
-        frag_byte |= FragmentGenerator.LAST_FRAG_FLAG
+        message_id |= FragmentGenerator.LAST_FRAG_FLAG
 
     if len(payload) < payload_limit:
-        frag_byte |= FragmentGenerator.PADDING_FLAG
+        message_id |= FragmentGenerator.PADDING_FLAG
 
         padding_bytes, padding_len = padding_length_to_bytes(payload_limit - len(payload))
     else:
         padding_len = 0
         padding_bytes = bytes()
 
-    fragment = i2b(message_id, FRAG_ID_SIZE) + i2b(frag_byte, FRAG_FLAG_SIZE)
+    fragment = i2b(message_id, FRAG_ID_SIZE) + frag_byte
 
     fragment += padding_bytes
 
     fragment += payload[:payload_limit] + get_random_bytes(padding_len)
 
-    return fragment
+    return fragment, payload_limit - (len(padding_bytes) + padding_len)
 
 
 def make_dummy_data_fragment():
     return make_fragment(0x0, 0x0, True, bytes(0),
-                         DATA_FRAG_PAYLOAD_SIZE)
+                         DATA_FRAG_PAYLOAD_SIZE)[0]
 
 
 def make_dummy_init_fragment():
     return make_fragment(0x0, 0x0, True, bytes(0),
-                         INIT_FRAG_PAYLOAD_SIZE)
+                         INIT_FRAG_PAYLOAD_SIZE)[0]
 
 
 class FragmentGenerator:
-    PADDING_FLAG = 0x80
-    LAST_FRAG_FLAG = 0x40
+    PADDING_FLAG = 0b0000_0000_0000_0001
+    LAST_FRAG_FLAG = 0b0000_0000_0000_0010
 
-    PADDING_BITMASK = 0x7F
+    PADDING_BITMASK = 0b0111_1111
+    PADDING_DONE_FLAG = 0b1000_0000
 
     last_used_message_id = 0
 
@@ -271,12 +298,14 @@ class FragmentGenerator:
     def _build_fragment(self, payload_limit):
         is_last_fragment = len(self.udp_payload) <= payload_limit
 
-        payload, self.udp_payload = cut(self.udp_payload, payload_limit)
-
         fragment_number = self.current_fragment
         self.current_fragment += 1
 
-        return make_fragment(self.message_id, fragment_number, is_last_fragment, payload, payload_limit)
+        fragment, payload_len = make_fragment(self.message_id, fragment_number, is_last_fragment, self.udp_payload, payload_limit)
+
+        self.udp_payload = self.udp_payload[payload_len:]
+
+        return fragment
 
     def __bool__(self):
         return len(self.udp_payload) > 0

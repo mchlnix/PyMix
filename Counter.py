@@ -6,7 +6,7 @@ class Counter:
     def __init__(self, start):
         self.current_value = start
 
-    def next(self):
+    def count(self):
         self.current_value += 1
 
     def __bytes__(self):

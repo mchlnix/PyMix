@@ -26,7 +26,7 @@ def check_for_timed_out_channels(channel_table, timeout=CHANNEL_TIMEOUT_SEC, log
         channel_timed_out = (now - channel.last_interaction) > timeout
 
         if channel_timed_out:
-            print(log_prefix, "Timeout for channel", channel_id, "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx")
+            print(log_prefix, "Timeout for channel", channel_id)
 
             timed_out.append(channel_id)
 
@@ -111,7 +111,7 @@ class ChannelEntry:
         return packets
 
     def _get_init_message(self):
-        self.request_counter.next()
+        self.request_counter.count()
 
         ip, port = self.dest_addr
 
@@ -119,7 +119,7 @@ class ChannelEntry:
 
         fragment = self._get_init_fragment()
 
-        channel_init = gen_init_msg(self.pub_comps, self.sym_keys, destination + fragment)
+        channel_init = gen_init_msg(self.pub_comps, self.request_counter.current_value, self.sym_keys, destination + fragment)
 
         print(self, "Init", "->", len(channel_init))
 
@@ -174,7 +174,7 @@ class ChannelEntry:
 
         self.packets.append(generator)
 
-        timed_out = check_for_timed_out_channels(ChannelEntry.table, timeout=25)
+        timed_out = check_for_timed_out_channels(ChannelEntry.table, timeout=CHANNEL_TIMEOUT_SEC - 5)
 
         for channel_id in timed_out:
             del ChannelEntry.table[channel_id]
@@ -189,7 +189,7 @@ class ChannelEntry:
             return
 
     def _encrypt_fragment(self, fragment):
-        self.request_counter.next()
+        self.request_counter.count()
 
         for key in reversed(self.sym_keys):
             counter = self.request_counter
@@ -239,7 +239,7 @@ class ChannelMid:
     table_out = dict()
     table_in = dict()
 
-    def __init__(self, in_chan_id):
+    def __init__(self, in_chan_id, check_responses=True):
         self.in_chan_id = in_chan_id
         self.out_chan_id = ChannelMid.random_channel()
 
@@ -250,7 +250,10 @@ class ChannelMid:
 
         self.key = None
         self.request_replay_detector = ReplayDetector(start=CHANNEL_CTR_START)
-        self.response_replay_detector = ReplayDetector(start=CHANNEL_CTR_START)
+        if check_responses:
+            self.response_replay_detector = ReplayDetector(start=CHANNEL_CTR_START)
+        else:
+            self.response_replay_detector = None
 
         self.response_counter = Counter(CHANNEL_CTR_START)
 
@@ -297,11 +300,10 @@ class ChannelMid:
 
         msg_ctr, _ = cut(response, CTR_PREFIX_LEN)
 
-        # todo find better way
-        if msg_ctr != bytes(CTR_PREFIX_LEN):
+        if self.response_replay_detector is not None:
             self.response_replay_detector.check_replay_window(b2i(msg_ctr))
 
-        self.response_counter.next()
+        self.response_counter.count()
 
         cipher = ctr_cipher(self.key, int(self.response_counter))
 
@@ -322,7 +324,7 @@ class ChannelMid:
 
         self.request_replay_detector.check_replay_window(b2i(msg_ctr))
 
-        sym_key, _, channel_init = process(priv_comp, channel_init)
+        sym_key, _, channel_init = process(priv_comp, b2i(msg_ctr), channel_init)
 
         if self.key is not None:
             assert self.key == sym_key
@@ -397,8 +399,8 @@ class ChannelExit:
 
             try:
                 self.out_sock.send(mix_message.payload)
-            except ConnectionRefusedError as ce:
-                print("Channel", self.in_chan_id, "with address", self.out_sock)
+            except ConnectionRefusedError:
+                print("Channel", self.in_chan_id, "with address", self.out_sock, "connection refused.")
 
         self.mix_msg_store.remove_completed()
 
@@ -408,10 +410,11 @@ class ChannelExit:
             del ChannelExit.table[channel_id]
 
     def recv_response(self, response):
-        self.last_interaction = time()
         """Turns the response into a MixMessage and saves its fragments for
         later sending.
         """
+        self.last_interaction = time()
+
         frag_gen = FragmentGenerator(response)
 
         while frag_gen:

@@ -19,7 +19,7 @@ for port_number in argv[2:]:
     socket_selector.register(listener_socket, EVENT_READ)
 
 
-def set_killed(signal, stackframe):
+def set_killed(_signal, _stackframe):
     global killed
 
     killed = True
@@ -36,7 +36,8 @@ with open(output_file, "w") as f:
         for key, _ in events:
             sock = key.fileobj
 
-            data = sock.recv(UDP_MTU)
+            if isinstance(sock, socket):
+                data = sock.recv(UDP_MTU)
 
-            f.write("{} {:.9f}\n".format(str(b2i(data[0:4])).rjust(7), time()))
-            f.flush()
+                f.write("{} {:.9f}\n".format(str(b2i(data[0:4])).rjust(7), time()))
+                f.flush()

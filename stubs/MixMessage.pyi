@@ -12,6 +12,7 @@ MAX_FRAG_COUNT: int
 
 HIGHEST_ID: int
 LOWEST_ID: int
+SINGLE_FRAGMENT_MESSAGE_ID: int
 
 DATA_FRAG_SIZE: int
 INIT_FRAG_SIZE: int
@@ -58,6 +59,7 @@ class FragmentGenerator:
     PADDING_FLAG: ClassVar[int]
     LAST_FRAG_FLAG: ClassVar[int]
     PADDING_BITMASK: ClassVar[int]
+    PADDING_DONE_FLAG: ClassVar[int]
 
     udp_payload: bytes
     message_id: int

@@ -10,7 +10,7 @@ class LinkEncryptor:
         self.counter = Counter(LINK_CTR_START)
 
     def encrypt(self, plain_text):
-        self.counter.next()
+        self.counter.count()
 
         chan_id, msg_type, ctr_prefix, payload = cut(
             plain_text, CHAN_ID_SIZE, MSG_TYPE_FLAG_LEN, CTR_PREFIX_LEN)

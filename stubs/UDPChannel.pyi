@@ -11,7 +11,7 @@ from MixMessage import MixMessage, MixMessageStore, FragmentGenerator
 from ReplayDetection import ReplayDetector
 
 
-def check_for_timed_out_channels(channel_table: dict,
+def check_for_timed_out_channels(channel_table: Dict[int, Union[ChannelEntry, ChannelMid, ChannelExit]],
                                  timeout:Optional[int]=...,
                                  log_prefix:Optional[str]=... ) -> List[int]: ...
 
@@ -76,12 +76,13 @@ class ChannelMid:
     response_replay_detector: ReplayDetector
 
     response_counter: Counter
+    check_responses: bool
 
     last_interaction: float
 
     initialized: bool
 
-    def __init__(self, in_chan_id: int) -> None: ...
+    def __init__(self, in_chan_id: int, check_responses: bool) -> None: ...
     def forward_request(self, request: bytes) -> None: ...
     def forward_response(self, response: bytes) -> None: ...
     def parse_channel_init(self, channel_init: bytes, priv_comp: Bn) -> None: ...

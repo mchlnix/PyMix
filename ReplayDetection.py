@@ -1,4 +1,5 @@
-from constants import REPLAY_WINDOW_SIZE, LINK_CTR_START
+from constants import REPLAY_WINDOW_SIZE, LINK_CTR_START, CTR_PREFIX_LEN
+from util import i2b
 
 
 class ReplayDetectedError(Exception):
@@ -11,7 +12,7 @@ class ReplayDetector:
 
     def check_replay_window(self, ctr):
         if ctr in self:
-            raise ReplayDetectedError("Counter value {} was too old or already seen.".format(ctr))
+            raise ReplayDetectedError("Counter value {}/{} was too old or already seen.".format(ctr, i2b(ctr, CTR_PREFIX_LEN)))
 
         self.replay_window.append(ctr)
 
