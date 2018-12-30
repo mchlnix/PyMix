@@ -16,7 +16,7 @@ def test_link_encryption():
     encryptor = LinkEncryptor(link_key)
     decryptor = LinkDecryptor(link_key)
 
-    encrypted = encryptor.encrypt(msg_type + i2b(chan_id, CHAN_ID_SIZE) + msg_ctr + payload)
+    encrypted = encryptor.encrypt(i2b(chan_id, CHAN_ID_SIZE) + msg_type + msg_ctr + payload)
 
     chan_id2, msg_ctr2, payload2, msg_type2 = decryptor.decrypt(encrypted)
 

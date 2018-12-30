@@ -20,10 +20,12 @@ def test_gen_init_msg():
 
         proc_chan_keys = []
 
-        message = gen_init_msg([pub1, pub2, pub3], chan_keys, payload)
+        msg_ctr = 1
+
+        message = gen_init_msg([pub1, pub2, pub3], msg_ctr, chan_keys, payload)
 
         for priv_key in [priv1, priv2, priv3]:
-            proc_chan_key, proc_payload, message = process(priv_key, message)
+            proc_chan_key, proc_payload, message = process(priv_key, msg_ctr, message)
 
             proc_chan_keys.append(proc_chan_key)
 
