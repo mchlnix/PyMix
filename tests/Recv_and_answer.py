@@ -24,7 +24,7 @@ if __name__ == "__main__":
             data, addr = sock.recvfrom(BUFFER_SIZE)
 
             print(addr, len(data), data.decode("utf-8"))
-            sock.sendto(bytes("23_Got Message. Thanks.", "utf-8"), addr)
+            sock.sendto(bytes("Echo_" + data.decode("utf-8"), "utf-8"), addr)
 
         except KeyboardInterrupt:
             print("Received Ctrl+C, quitting.")
