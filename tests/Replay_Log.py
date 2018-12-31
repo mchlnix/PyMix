@@ -77,4 +77,6 @@ if __name__ == "__main__":
                 f.write("{} {:.9f}\n".format(packet.packet_id, time()))
                 src_sockets[row[SRC_ADDR_INDEX]].sendto(packet.get_bytes(), entry_addr)
                 packets_sent += 1
-                print("\r{}/{} {}%".format(packets_sent, packet_amount, math.floor(100 / packet_amount * packets_sent)), end="")
+                print("\r{}/{} {}%".format(packets_sent, packet_amount,
+                                           math.floor(100 / packet_amount * packets_sent)),
+                      end="")

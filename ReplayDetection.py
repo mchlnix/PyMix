@@ -12,7 +12,8 @@ class ReplayDetector:
 
     def check_replay_window(self, ctr):
         if ctr in self:
-            raise ReplayDetectedError("Counter value {}/{} was too old or already seen.".format(ctr, i2b(ctr, CTR_PREFIX_LEN)))
+            raise ReplayDetectedError(
+                "Counter value {}/{} was too old or already seen.".format(ctr, i2b(ctr, CTR_PREFIX_LEN)))
 
         self.replay_window.append(ctr)
 

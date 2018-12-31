@@ -1,6 +1,7 @@
 from Counter import Counter
 from ReplayDetection import ReplayDetector
-from constants import LINK_CTR_START, CTR_PREFIX_LEN, LINK_HEADER_LEN, GCM_MAC_LEN, CHAN_ID_SIZE, MSG_TYPE_FLAG_LEN, RESERVED_LEN
+from constants import LINK_CTR_START, CTR_PREFIX_LEN, LINK_HEADER_LEN, GCM_MAC_LEN, CHAN_ID_SIZE, MSG_TYPE_FLAG_LEN,\
+    RESERVED_LEN
 from util import cut, gcm_cipher, b2i, get_random_bytes
 
 

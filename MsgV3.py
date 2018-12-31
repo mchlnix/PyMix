@@ -55,7 +55,7 @@ def gen_init_msg(pub_mix_keys, message_counter, channel_keys, payload):
 
 
 def gen_blind(secret):
-    if isinstance(secret, EcPt): # since the group_elem is used in the generation of secret, there is no need for it to be used
+    if isinstance(secret, EcPt):
         return params.hb(params.get_aes_key(secret))
     else:
         return params.hb(secret)

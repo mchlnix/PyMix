@@ -301,7 +301,8 @@ class FragmentGenerator:
         fragment_number = self.current_fragment
         self.current_fragment += 1
 
-        fragment, payload_len = make_fragment(self.message_id, fragment_number, is_last_fragment, self.udp_payload, payload_limit)
+        fragment, payload_len = make_fragment(self.message_id, fragment_number, is_last_fragment, self.udp_payload,
+                                              payload_limit)
 
         self.udp_payload = self.udp_payload[payload_len:]
 

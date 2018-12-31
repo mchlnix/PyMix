@@ -119,7 +119,8 @@ class ChannelEntry:
 
         fragment = self._get_init_fragment()
 
-        channel_init = gen_init_msg(self.pub_comps, self.request_counter.current_value, self.sym_keys, destination + fragment)
+        channel_init = gen_init_msg(self.pub_comps, self.request_counter.current_value, self.sym_keys,
+                                    destination + fragment)
 
         print(self, "Init", "->", len(channel_init))
 
@@ -421,7 +422,8 @@ class ChannelExit:
             print(self, "Data", "<-", len(frag_gen.udp_payload))
 
             fragment = frag_gen.get_data_fragment()
-            packet = create_packet(self.in_chan_id, DATA_MSG_FLAG, fragment[0:CTR_PREFIX_LEN], fragment[CTR_PREFIX_LEN:] + get_random_bytes(MIX_COUNT * CTR_PREFIX_LEN))
+            packet = create_packet(self.in_chan_id, DATA_MSG_FLAG, fragment[0:CTR_PREFIX_LEN],
+                                   fragment[CTR_PREFIX_LEN:] + get_random_bytes(MIX_COUNT * CTR_PREFIX_LEN))
 
             ChannelExit.to_mix.append(packet)
 
@@ -452,7 +454,8 @@ class ChannelExit:
         self.recv_request(fragment)
 
     def send_chan_confirm(self):
-        packet = create_packet(self.in_chan_id, CHAN_CONFIRM_MSG_FLAG, bytes(CTR_PREFIX_LEN), get_random_bytes(DATA_PACKET_SIZE))
+        packet = create_packet(self.in_chan_id, CHAN_CONFIRM_MSG_FLAG, bytes(CTR_PREFIX_LEN),
+                               get_random_bytes(DATA_PACKET_SIZE))
 
         print(self, "Init", "<-", "len:", len(packet))
 
