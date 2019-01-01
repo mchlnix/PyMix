@@ -60,9 +60,9 @@ INIT_OVERHEAD = GROUP_ELEMENT_LEN + MIX_COUNT * SYM_KEY_LEN + INIT_PAYLOAD_LEN
 
 DATA_OVERHEAD = (MIX_COUNT - 1) * CTR_PREFIX_LEN
 
-# biggest UDP packet seen in the wild was 1360, which gets divided equally by 272
+# biggest UDP packet seen in the wild was 1370, which gets divided equally by 274
 
-DATA_FRAG_PAYLOAD_SIZE = 272
+DATA_FRAG_PAYLOAD_SIZE = 274
 INIT_FRAG_PAYLOAD_SIZE = DATA_FRAG_PAYLOAD_SIZE - (INIT_OVERHEAD - DATA_OVERHEAD)
 
 assert INIT_OVERHEAD >= DATA_OVERHEAD
