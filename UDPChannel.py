@@ -257,6 +257,7 @@ class ChannelMid:
             self.response_replay_detector = None
 
         self.response_counter = Counter(CHANNEL_CTR_START)
+        self.response_counter.count()
 
         self.last_interaction = time()
 
