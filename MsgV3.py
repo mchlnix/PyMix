@@ -1,7 +1,7 @@
 from petlib.ec import EcPt
 from sphinxmix.SphinxParams import SphinxParams
 
-from constants import SYM_KEY_LEN, MIX_COUNT, GROUP_ELEMENT_LEN, CTR_PREFIX_LEN
+from constants import SYM_KEY_LEN, MIX_COUNT, GROUP_ELEMENT_LEN, CTR_PREFIX_LEN, NONCE_LEN
 from util import ctr_cipher, cut, gen_sym_key, i2b
 
 params = SphinxParams()
@@ -22,7 +22,7 @@ def get_pub_key(private_key):
 def gen_init_msg(pub_mix_keys, message_counter, channel_keys, payload):
     assert len(pub_mix_keys) == len(channel_keys)
 
-    ctr_blind = gen_blind(i2b(message_counter, CTR_PREFIX_LEN) + bytes(CTR_PREFIX_LEN))
+    ctr_blind = gen_blind(i2b(message_counter, CTR_PREFIX_LEN) + bytes(NONCE_LEN - CTR_PREFIX_LEN))
 
     y_mix_1, y_mix_2, y_mix_3 = pub_mix_keys
 
@@ -64,7 +64,7 @@ def gen_blind(secret):
 def process(priv_mix_key, message_counter, message):
     y_msg, chan_key_onion, payload_onion = cut_init_message(message)
 
-    ctr_blind = gen_blind(i2b(message_counter, CTR_PREFIX_LEN) + bytes(CTR_PREFIX_LEN))
+    ctr_blind = gen_blind(i2b(message_counter, CTR_PREFIX_LEN) + bytes(NONCE_LEN - CTR_PREFIX_LEN))
 
     k_disp = params.group.expon(y_msg, [priv_mix_key])
     k_disp = params.group.expon(k_disp, [ctr_blind])
