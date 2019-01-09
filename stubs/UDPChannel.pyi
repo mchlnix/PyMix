@@ -28,7 +28,8 @@ class ChannelEntry:
     chan_id: int
 
     pub_comps: List[EcPt]
-    sym_keys: List[bytes]
+    req_sym_keys: List[bytes]
+    res_sym_keys: List[bytes]
     request_counter: Counter
     replay_detector: ReplayDetector
 
@@ -70,7 +71,8 @@ class ChannelMid:
 
     in_chan_id: int
     out_chan_id: int
-    key: bytes
+    req_key: bytes
+    res_key: bytes
 
     request_replay_detector: ReplayDetector
     response_replay_detector: ReplayDetector

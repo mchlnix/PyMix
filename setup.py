@@ -32,6 +32,6 @@ setup(
     install_requires=[
         'petlib',
         'pycryptodome',
-        'sphinxmix',
+        'sphinxmix', 'pytest'
     ]
 )

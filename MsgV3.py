@@ -2,7 +2,7 @@ from petlib.ec import EcPt
 from sphinxmix.SphinxParams import SphinxParams
 
 from constants import SYM_KEY_LEN, MIX_COUNT, GROUP_ELEMENT_LEN, CTR_PREFIX_LEN, NONCE_LEN
-from util import ctr_cipher, cut, gen_sym_key, i2b
+from util import ctr_cipher, cut, gen_sym_key, i2b, get_random_bytes
 
 params = SphinxParams()
 
@@ -19,8 +19,8 @@ def get_pub_key(private_key):
     return group_expon(private_key)
 
 
-def gen_init_msg(pub_mix_keys, message_counter, channel_keys, payload):
-    assert len(pub_mix_keys) == len(channel_keys)
+def gen_init_msg(pub_mix_keys, message_counter, request_channel_keys, response_channel_keys, payload):
+    assert len(pub_mix_keys) == len(request_channel_keys)
 
     ctr_blind = gen_blind(i2b(message_counter, CTR_PREFIX_LEN) + bytes(NONCE_LEN - CTR_PREFIX_LEN))
 
@@ -41,13 +41,13 @@ def gen_init_msg(pub_mix_keys, message_counter, channel_keys, payload):
     k_disp_3 = params.group.expon(y_mix_3, [x_msg_3])
     k_disp_3 = params.group.expon(k_disp_3, [ctr_blind])
 
-    chan_key_onion = gen_sym_key() * MIX_COUNT
+    chan_key_onion = get_random_bytes(MIX_COUNT * 2 * SYM_KEY_LEN)
     payload_onion = payload
 
-    for k_disp, k_chan in zip([k_disp_3, k_disp_2, k_disp_1], reversed(channel_keys)):
+    for k_disp, k_chan_req, k_chan_res in zip([k_disp_3, k_disp_2, k_disp_1], reversed(request_channel_keys), reversed(response_channel_keys)):
         cipher = ctr_cipher(params.get_aes_key(k_disp), message_counter)
 
-        chan_key_onion = cipher.encrypt(k_chan + chan_key_onion[0:-SYM_KEY_LEN])
+        chan_key_onion = cipher.encrypt(k_chan_req + k_chan_res + chan_key_onion[0:-2 * SYM_KEY_LEN])
 
         payload_onion = cipher.encrypt(payload_onion)
 
@@ -71,8 +71,9 @@ def process(priv_mix_key, message_counter, message):
 
     cipher = ctr_cipher(params.get_aes_key(k_disp), message_counter)
 
-    k_chan, chan_key_onion = cut(cipher.decrypt(chan_key_onion), SYM_KEY_LEN)
+    k_chan_req, k_chan_res, chan_key_onion = cut(cipher.decrypt(chan_key_onion), SYM_KEY_LEN, SYM_KEY_LEN)
 
+    chan_key_onion += gen_sym_key()
     chan_key_onion += gen_sym_key()
 
     payload_onion = cipher.decrypt(payload_onion)
@@ -82,10 +83,10 @@ def process(priv_mix_key, message_counter, message):
 
     message = y_msg_2.export() + chan_key_onion + payload_onion
 
-    return k_chan, payload_onion, message
+    return k_chan_req, k_chan_res, payload_onion, message
 
 
 def cut_init_message(message):
-    group_element, channel_key_onion, payload_onion = cut(message, GROUP_ELEMENT_LEN, MIX_COUNT * SYM_KEY_LEN)
+    group_element, channel_key_onion, payload_onion = cut(message, GROUP_ELEMENT_LEN, MIX_COUNT * 2 * SYM_KEY_LEN)
 
     return EcPt.from_binary(group_element, params.group.G), channel_key_onion, payload_onion
