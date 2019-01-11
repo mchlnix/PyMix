@@ -1,5 +1,6 @@
 import pytest
 
+from Counter import Counter
 from MixMessage import INIT_PACKET_SIZE, FragmentGenerator
 from MsgV3 import get_pub_key, gen_priv_key
 from ReplayDetection import ReplayDetectedError
@@ -59,12 +60,14 @@ def test_encrypt_fragment():
     packet1 = channel._encrypt_fragment(fragment)
 
     packet2 = fragment
-    counter = 1
+    counter = Counter(1)
 
     for _ in range(MIX_COUNT):
-        cipher = ctr_cipher(sym_key, counter)
+        cipher = ctr_cipher(sym_key, counter.current_value)
 
-        packet2 = i2b(counter, CTR_PREFIX_LEN) + cipher.encrypt(packet2)
+        packet2 = cipher.encrypt(packet2)
+
+    packet2 = bytes(counter) + packet2
 
     assert packet1 == packet2
 

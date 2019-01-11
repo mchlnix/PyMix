@@ -77,7 +77,6 @@ class ChannelMid:
     request_replay_detector: ReplayDetector
     response_replay_detector: ReplayDetector
 
-    response_counter: Counter
     check_responses: bool
 
     last_interaction: float
@@ -106,6 +105,7 @@ class ChannelExit:
     mix_msg_store: MixMessageStore
 
     last_interaction: float
+    response_counter: Counter
 
     def __init__(self, in_chan_id:int) -> None: ...
     def recv_request(self, request: bytes)-> None: ...

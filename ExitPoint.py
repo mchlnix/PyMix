@@ -79,11 +79,10 @@ class ExitPoint:
                         channel.send_chan_confirm()
                     else:
                         # data msg
-
                         if chan_id not in ChannelExit.table.keys():
                             raise Exception("Received Data Msg before Channel was established", chan_id)
                         else:
-                            ChannelExit.table[chan_id].recv_request(msg_ctr + fragment)
+                            ChannelExit.table[chan_id].recv_request(fragment)
 
                 # send responses to mix
                 for packet in ChannelExit.to_mix:

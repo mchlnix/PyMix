@@ -60,7 +60,7 @@ INIT_OVERHEAD = GROUP_ELEMENT_LEN + MIX_COUNT * 2 * SYM_KEY_LEN + INIT_PAYLOAD_L
 
 # data message
 
-DATA_OVERHEAD = (MIX_COUNT - 1) * CTR_PREFIX_LEN
+DATA_OVERHEAD = 0
 
 # biggest UDP packet seen in the wild was 1370, which gets divided equally by 274
 

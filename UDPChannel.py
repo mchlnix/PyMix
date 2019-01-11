@@ -9,8 +9,8 @@ from MixMessage import DATA_FRAG_SIZE, MixMessageStore, DATA_PACKET_SIZE, Fragme
 from MsgV3 import gen_init_msg, process, cut_init_message
 from ReplayDetection import ReplayDetector
 from constants import CHAN_ID_SIZE, MIN_PORT, MAX_PORT, CTR_PREFIX_LEN, \
-    CTR_MODE_PADDING, IPV4_LEN, PORT_LEN, CHAN_INIT_MSG_FLAG, DATA_MSG_FLAG, \
-    CHAN_CONFIRM_MSG_FLAG, MSG_TYPE_FLAG_LEN, MIX_COUNT, CHANNEL_CTR_START, CHANNEL_TIMEOUT_SEC
+    IPV4_LEN, PORT_LEN, CHAN_INIT_MSG_FLAG, DATA_MSG_FLAG, \
+    CHAN_CONFIRM_MSG_FLAG, MSG_TYPE_FLAG_LEN, CHANNEL_CTR_START, CHANNEL_TIMEOUT_SEC
 from util import i2b, b2i, random_channel_id, cut, b2ip, gen_sym_key, ctr_cipher, \
     get_random_bytes, ip2b
 
@@ -193,31 +193,29 @@ class ChannelEntry:
 
     def _encrypt_fragment(self, fragment):
         self.request_counter.count()
+        counter = self.request_counter
 
         for key in reversed(self.req_sym_keys):
-            counter = self.request_counter
 
             cipher = ctr_cipher(key, int(counter))
 
-            fragment = bytes(counter) + cipher.encrypt(fragment)
+            fragment = cipher.encrypt(fragment)
 
-        return fragment
+        return bytes(counter) + fragment
 
     def _decrypt_fragment(self, fragment):
-        ctr = 0
+        ctr, cipher_text = cut(fragment, CTR_PREFIX_LEN)
+
+        ctr = b2i(ctr)
 
         for key in self.res_sym_keys:
-            ctr, cipher_text = cut(fragment, CTR_PREFIX_LEN)
-
-            ctr = b2i(ctr)
-
             cipher = ctr_cipher(key, ctr)
 
-            fragment = cipher.decrypt(cipher_text)
+            cipher_text = cipher.decrypt(cipher_text)
 
         self.replay_detector.check_replay_window(ctr)
 
-        return fragment
+        return cipher_text
 
     def __str__(self):
         return "ChannelEntry {}:{} - {}:".format(*self.src_addr, self.chan_id)
@@ -259,9 +257,6 @@ class ChannelMid:
         else:
             self.response_replay_detector = None
 
-        self.response_counter = Counter(CHANNEL_CTR_START)
-        self.response_counter.count()
-
         self.last_interaction = time()
 
         self.initialized = False
@@ -271,19 +266,16 @@ class ChannelMid:
         self.last_interaction = time()
 
         ctr, cipher_text = cut(request, CTR_PREFIX_LEN)
-        ctr = b2i(ctr)
 
-        self.request_replay_detector.check_replay_window(ctr)
+        self.request_replay_detector.check_replay_window(b2i(ctr))
 
-        cipher = ctr_cipher(self.req_key, ctr)
+        cipher = ctr_cipher(self.req_key, b2i(ctr))
 
-        forward_msg = cipher.decrypt(cipher_text) + get_random_bytes(CTR_MODE_PADDING)
-
-        message_counter, payload = cut(forward_msg, CTR_PREFIX_LEN)
+        payload = cipher.decrypt(cipher_text)
 
         print(self, "Data", "->", len(payload))
 
-        packet = create_packet(self.out_chan_id, DATA_MSG_FLAG, message_counter, payload)
+        packet = create_packet(self.out_chan_id, DATA_MSG_FLAG, ctr, payload)
 
         ChannelMid.requests.append(packet)
 
@@ -298,25 +290,20 @@ class ChannelMid:
     def forward_response(self, response):
         self.last_interaction = time()
 
-        # cut the padding off
-        response, _ = cut(response, -CTR_MODE_PADDING)
-
         msg_type, response = cut(response, MSG_TYPE_FLAG_LEN)
 
-        msg_ctr, _ = cut(response, CTR_PREFIX_LEN)
+        msg_ctr, response = cut(response, CTR_PREFIX_LEN)
 
         if self.response_replay_detector is not None:
             self.response_replay_detector.check_replay_window(b2i(msg_ctr))
 
-        self.response_counter.count()
-
-        cipher = ctr_cipher(self.res_key, int(self.response_counter))
+        cipher = ctr_cipher(self.res_key, b2i(msg_ctr))
 
         forward_msg = cipher.encrypt(response)
 
         print(self, "Data", "<-", len(forward_msg))
 
-        response = create_packet(self.in_chan_id, msg_type, self.response_counter, forward_msg)
+        response = create_packet(self.in_chan_id, msg_type, msg_ctr, forward_msg)
 
         ChannelMid.responses.append(response)
 
@@ -376,6 +363,8 @@ class ChannelExit:
         self.dest_addr = ("0.0.0.0", 0)
 
         self.last_interaction = time()
+        self.response_counter = Counter(CHANNEL_CTR_START)
+        self.response_counter.count()
 
         print(self, "New Channel")
 
@@ -425,9 +414,11 @@ class ChannelExit:
         while frag_gen:
             print(self, "Data", "<-", len(frag_gen.udp_payload))
 
+            self.response_counter.count()
+
             fragment = frag_gen.get_data_fragment()
-            packet = create_packet(self.in_chan_id, DATA_MSG_FLAG, fragment[0:CTR_PREFIX_LEN],
-                                   fragment[CTR_PREFIX_LEN:] + get_random_bytes(MIX_COUNT * CTR_PREFIX_LEN))
+            packet = create_packet(self.in_chan_id, DATA_MSG_FLAG, bytes(self.response_counter),
+                                   fragment)
 
             ChannelExit.to_mix.append(packet)
 
@@ -458,7 +449,8 @@ class ChannelExit:
         self.recv_request(fragment)
 
     def send_chan_confirm(self):
-        packet = create_packet(self.in_chan_id, CHAN_CONFIRM_MSG_FLAG, bytes(CTR_PREFIX_LEN),
+        self.response_counter.count()
+        packet = create_packet(self.in_chan_id, CHAN_CONFIRM_MSG_FLAG, bytes(self.response_counter),
                                get_random_bytes(DATA_PACKET_SIZE))
 
         print(self, "Init", "<-", "len:", len(packet))
