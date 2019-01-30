@@ -31,6 +31,10 @@ delay-test: chain test-delay stop
 test-delay:
 	PYTHONPATH="." tests/Delay_Test.py
 
+.PHONY: coverage
+coverage: export PYTHONPATH=.
+coverage:
+	py.test --cov=. tests/*_test.py
 
 .PHONY: function-test
 function-test: export PYTHONPATH=.
