@@ -49,6 +49,8 @@ def gen_init_msg(pub_mix_keys, message_counter, request_channel_keys, response_c
 
         chan_key_onion = cipher.encrypt(k_chan_req + k_chan_res + chan_key_onion[0:-2 * SYM_KEY_LEN])
 
+        cipher = ctr_cipher(params.get_aes_key(k_disp), message_counter)
+
         payload_onion = cipher.encrypt(payload_onion)
 
     return y_msg_1.export() + chan_key_onion + payload_onion
@@ -75,6 +77,8 @@ def process(priv_mix_key, message_counter, message):
 
     chan_key_onion += gen_sym_key()
     chan_key_onion += gen_sym_key()
+
+    cipher = ctr_cipher(params.get_aes_key(k_disp), message_counter)
 
     payload_onion = cipher.decrypt(payload_onion)
 
