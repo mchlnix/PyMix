@@ -23,8 +23,13 @@ if __name__ == "__main__":
         try:
             data, addr = sock.recvfrom(BUFFER_SIZE)
 
-            print(addr, len(data), data.decode("utf-8"))
-            sock.sendto(bytes("Echo_" + data.decode("utf-8"), "utf-8"), addr)
+            try:
+                payload = data.decode("utf-8")
+                print(addr, len(data), data.decode("utf-8"))
+            except UnicodeDecodeError as ude:
+                print("Couldn't display payload.")
+
+                sock.sendto(data, addr)
 
         except KeyboardInterrupt:
             print("Received Ctrl+C, quitting.")
