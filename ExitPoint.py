@@ -39,7 +39,11 @@ class ExitPoint:
                 if channel is not None:
                     # if the socket is associated with a channel, it's a
                     # response
-                    response = channel.out_sock.recv(UDP_MTU)
+                    try:
+                        response = channel.out_sock.recv(UDP_MTU)
+                    except ConnectionRefusedError as cfe:
+                        print(cfe, channel.out_sock.getpeername())
+                        continue
 
                     channel.recv_response(response)
                 else:
