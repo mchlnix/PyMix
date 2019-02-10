@@ -125,7 +125,7 @@ class Mix:
                     print(self, "Data/Init", "<-", len(enc_packet))
                     self.incoming.sendto(enc_packet, self.mix_addr)
 
-    def __str__(self):
+    def __repr__(self):
         return "Mix:"
 
 
