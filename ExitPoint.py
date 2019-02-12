@@ -60,7 +60,7 @@ class ExitPoint:
                     else:
                         packet = sock.recv(UDP_MTU)
 
-                    chan_id, msg_ctr, fragment, msg_type = self.link_decryptor.decrypt(packet)
+                    chan_id, _, fragment, msg_type = self.link_decryptor.decrypt(packet)
 
                     # new channel detected
                     if msg_type == CHAN_INIT_MSG_FLAG:
