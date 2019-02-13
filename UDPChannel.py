@@ -1,6 +1,6 @@
 from random import randint
 from selectors import DefaultSelector, EVENT_READ
-from socket import socket, AF_INET, SOCK_DGRAM as UDP
+from socket import socket, AF_INET, SOCK_DGRAM as UDP, SOCK_STREAM
 from time import time
 
 from Counter import Counter
@@ -475,6 +475,171 @@ class ChannelExit:
             try:
                 new_sock = socket(AF_INET, UDP)
                 new_sock.bind(("127.0.0.1", rand_port))
+                new_sock.setblocking(False)
+
+                ChannelExit.out_ports.append(rand_port)
+
+                return new_sock
+            except OSError:
+                # Port already in use by another application, try a new one
+                pass
+
+
+class ChannelLastMix:
+    out_chan_list = []
+    responses = []
+
+    table = dict()
+
+    sock_sel = DefaultSelector()
+
+    def __init__(self, chan_id, destination):
+        self.chan_id = chan_id
+        self.to_vpn = ChannelLastMix.random_socket(destination)
+
+        print(self, "New Channel")
+
+        ChannelLastMix.table[self.chan_id] = self
+
+        self.req_key = None
+        self.res_key = None
+        self.request_replay_detector = ReplayDetector(start=CHANNEL_CTR_START)
+        self.response_counter = Counter(CHANNEL_CTR_START)
+
+        self.msg_store = MixMessageStore()
+
+        self.last_interaction = time()
+
+        self.initialized = False
+
+    def send_requests(self):
+        # send completed mix messages to the destination immediately
+        for mix_message in self.msg_store.completed():
+            print(self, "Data", "->", len(mix_message.payload))
+
+            self.to_vpn.send(i2b(len(mix_message.payload), 2) + mix_message.payload)
+
+        self.msg_store.remove_completed()
+
+    def forward_request(self, request):
+        """Takes a mix fragment, already stripped of the channel id."""
+        self.last_interaction = time()
+
+        ctr, cipher_text = cut(request, CTR_PREFIX_LEN)
+
+        self.request_replay_detector.check_replay_window(b2i(ctr))
+
+        cipher = ctr_cipher(self.req_key, b2i(ctr))
+
+        payload = cipher.decrypt(cipher_text)
+
+        print(self, "Data", "->", len(payload))
+
+        fragment, _ = cut(payload, DATA_FRAG_SIZE)
+
+        try:
+            self.msg_store.parse_fragment(fragment)
+        except ValueError:
+            print(self, "Dummy Request received")
+            return
+
+        self.send_requests()
+
+        timed_out = check_for_timed_out_channels(ChannelExit.table)
+
+        for channel_id in timed_out:
+            channel = ChannelLastMix.table[channel_id]
+
+            channel.to_vpn.close()
+
+            del ChannelLastMix.table[channel_id]
+
+    def forward_response(self, msg_type, response):
+        """Turns the response into a MixMessage and saves its fragments for
+        later sending.
+        """
+        self.last_interaction = time()
+
+        frag_gen = FragmentGenerator(response)
+
+        while frag_gen:
+            print(self, "Data", "<-", len(frag_gen.udp_payload))
+
+            self.response_counter.count()
+
+            fragment = frag_gen.get_data_fragment()
+
+            cipher = ctr_cipher(self.res_key, int(self.response_counter))
+
+            fragment = cipher.encrypt(fragment)
+
+            packet = create_packet(self.chan_id, msg_type, bytes(self.response_counter), fragment)
+
+            ChannelLastMix.responses.append(packet)
+
+    def parse_channel_init(self, channel_init, priv_comp):
+        self.last_interaction = time()
+
+        msg_ctr, channel_init = cut(channel_init, CTR_PREFIX_LEN)
+
+        self.request_replay_detector.check_replay_window(b2i(msg_ctr))
+
+        key_req, key_res, payload, _ = process(priv_comp, b2i(msg_ctr), channel_init)
+
+        if self.req_key is not None and self.res_key is not None:
+            assert self.req_key == key_req
+            assert self.res_key == key_res
+        else:
+            self.req_key = key_req
+            self.res_key = key_res
+
+        print(self, "Init", "->", len(payload))
+
+        ip, port, fragment = cut(payload, IPV4_LEN, PORT_LEN)
+
+        if not self.initialized:
+            connect_message = bytes([1, 4, 1]) + ip + port + bytes(2)
+
+            self.to_vpn.send(connect_message)
+
+        self.initialized = True
+
+        try:
+            print(len(fragment))
+            self.msg_store.parse_fragment(fragment)
+        except ValueError as v:
+            print(self, "Dummy Request received:", v)
+            return
+
+        self.send_requests()
+
+    def send_chan_confirm(self):
+        self.response_counter.count()
+        packet = create_packet(self.chan_id, CHAN_CONFIRM_MSG_FLAG, bytes(self.response_counter),
+                               get_random_bytes(DATA_PACKET_SIZE))
+
+        print(self, "Init", "<-", "len:", len(packet))
+
+        ChannelLastMix.responses.append(packet)
+
+    def __str__(self):
+        return "ChannelLastMix {}:".format(self.chan_id)
+
+    @staticmethod
+    def random_socket(vpn_destination):
+        """Returns a socket bound to a random port, that is not in use already.
+        """
+
+        while True:
+            rand_port = randint(MIN_PORT, MAX_PORT)
+
+            if rand_port in ChannelExit.out_ports:
+                # Port already in use by us
+                continue
+
+            try:
+                new_sock = socket(AF_INET, SOCK_STREAM)
+                new_sock.connect(vpn_destination)
                 new_sock.setblocking(False)
 
                 ChannelExit.out_ports.append(rand_port)
