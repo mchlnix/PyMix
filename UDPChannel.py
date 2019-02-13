@@ -487,6 +487,7 @@ class ChannelExit:
 
 class ChannelLastMix:
     out_chan_list = []
+    out_ports = []
     responses = []
 
     table = dict()
@@ -496,6 +497,7 @@ class ChannelLastMix:
     def __init__(self, chan_id, destination):
         self.chan_id = chan_id
         self.to_vpn = ChannelLastMix.random_socket(destination)
+        ChannelLastMix.sock_sel.register(self.to_vpn, EVENT_READ, data=self)
 
         print(self, "New Channel")
 
@@ -545,7 +547,7 @@ class ChannelLastMix:
 
         self.send_requests()
 
-        timed_out = check_for_timed_out_channels(ChannelExit.table)
+        timed_out = check_for_timed_out_channels(ChannelLastMix.table)
 
         for channel_id in timed_out:
             channel = ChannelLastMix.table[channel_id]
@@ -554,7 +556,7 @@ class ChannelLastMix:
 
             del ChannelLastMix.table[channel_id]
 
-    def forward_response(self, msg_type, response):
+    def forward_response(self, response):
         """Turns the response into a MixMessage and saves its fragments for
         later sending.
         """
@@ -573,7 +575,7 @@ class ChannelLastMix:
 
             fragment = cipher.encrypt(fragment)
 
-            packet = create_packet(self.chan_id, msg_type, bytes(self.response_counter), fragment)
+            packet = create_packet(self.chan_id, DATA_MSG_FLAG, bytes(self.response_counter), fragment)
 
             ChannelLastMix.responses.append(packet)
 
@@ -633,16 +635,17 @@ class ChannelLastMix:
         while True:
             rand_port = randint(MIN_PORT, MAX_PORT)
 
-            if rand_port in ChannelExit.out_ports:
+            if rand_port in ChannelLastMix.out_ports:
                 # Port already in use by us
                 continue
 
             try:
                 new_sock = socket(AF_INET, SOCK_STREAM)
+
                 new_sock.connect(vpn_destination)
                 new_sock.setblocking(False)
 
-                ChannelExit.out_ports.append(rand_port)
+                ChannelLastMix.out_ports.append(rand_port)
 
                 return new_sock
             except OSError:

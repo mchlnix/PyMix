@@ -1,6 +1,7 @@
 #!/usr/bin/python3 -u
 # standard library
 from argparse import ArgumentParser
+from selectors import EVENT_READ
 from socket import socket, AF_INET, SOCK_DGRAM as UDP
 
 from petlib.bn import Bn
@@ -8,8 +9,8 @@ from petlib.bn import Bn
 from LinkEncryption import LinkDecryptor, LinkEncryptor
 from MsgV3 import get_pub_key
 from UDPChannel import ChannelLastMix
-from constants import UDP_MTU, SYM_KEY_LEN, DATA_MSG_FLAG, CHAN_ID_SIZE, MSG_TYPE_FLAG_LEN
-from util import read_cfg_values, shuffle, cut
+from constants import UDP_MTU, SYM_KEY_LEN, DATA_MSG_FLAG
+from util import read_cfg_values, shuffle
 
 STORE_LIMIT = 1
 
@@ -29,6 +30,8 @@ class LastMix:
         # to the address of the associated channel id
         self.incoming = socket(AF_INET, UDP)
         self.incoming.bind(own_addr)
+
+        ChannelLastMix.sock_sel.register(self.incoming, EVENT_READ)
 
         self.next_addr = next_addr
         self.mix_addr = None
@@ -61,32 +64,38 @@ class LastMix:
             channel.parse_channel_init(msg_ctr + fragment, self.priv_comp)
             channel.send_chan_confirm()
 
-    def handle_response(self, response):
-        # encrypt the incoming message
-        # disregard the message counter afterwards
-        # break up the payload into fragments
-        # put fragment messages into a list
-        # send out if list is full
-
-        out_id, msg_type, response = cut(CHAN_ID_SIZE, MSG_TYPE_FLAG_LEN, response)
-
-        channel = ChannelLastMix.table[out_id]
-
-        channel.response(msg_type, response)
-
     def run(self):
         while True:
-            # listen for packets
-            packet, addr = self.incoming.recvfrom(UDP_MTU)
+            events = ChannelLastMix.sock_sel.select()
 
-            # if the src addr of the last packet is the same as the addr of the
-            # next hop, then this packet is a response, otherwise a mix fragment
-            if addr == self.next_addr:
-                self.handle_response(packet)
-            else:
-                if self.mix_addr is None:
-                    self.mix_addr = addr
-                self.handle_mix_fragment(packet)
+            for key, _ in events:
+                channel = key.data
+
+                if channel is not None:
+                    # if the socket is associated with a channel, it's a
+                    # response
+                    try:
+                        response = channel.to_vpn.recv(UDP_MTU)
+                    except ConnectionRefusedError as cfe:
+                        print(cfe, channel.out_sock.getpeername())
+                        continue
+
+                    channel.forward_response(response)
+                else:
+                    # the only socket without a channel is the mix socket
+                    sock = key.fileobj
+
+                    if isinstance(sock, int):
+                        continue
+
+                    # we assume the first received message will be from the mix
+                    if self.mix_addr is None:
+                        packet, self.mix_addr = sock.recvfrom(UDP_MTU)
+                        sock.connect(self.mix_addr)
+                    else:
+                        packet = sock.recv(UDP_MTU)
+
+                    self.handle_mix_fragment(packet)
 
             # send out responses
             if len(ChannelLastMix.responses) >= STORE_LIMIT:

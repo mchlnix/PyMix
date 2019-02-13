@@ -41,6 +41,7 @@ if __name__ == "__main__":
                         utf = "utf-8"
                         print(f"Got data message from {s.getpeername()}. Length: {len_int}")
                         print(data)
+                        s.send(data)
                     else:
                         s.close()
                         read_list.remove(s)
