@@ -1,0 +1,50 @@
+#!/bin/bash
+
+IP=127.0.0.1
+
+ENTRY_POINT_PORT=20000
+
+MIX_INDEX=1
+MIX_PORT=20001
+
+TERMINAL=xterm
+TERM_OPS="-e"
+
+PID_FILE="chain.pid"
+
+if [[ -e "$PID_FILE" ]]; then
+    echo "Chain PID file present. Exiting"
+    exit 0
+fi
+
+if type xfce4-terminal >/dev/null; then
+    TERMINAL=xfce4-terminal
+    TERM_OPS="-H --disable-server -e"
+fi
+
+# start entry point
+$TERMINAL -T EntryPoint.py $TERM_OPS "./EntryPoint.py $IP:$ENTRY_POINT_PORT config/MixChain.cfg" &
+
+echo "$!" >> "$PID_FILE"
+
+# start mixes 
+for cfg_file in config/Mix[1-2]*.cfg; do
+    $TERMINAL -T "Mix.py $MIX_INDEX" $TERM_OPS "./Mix.py $cfg_file" &
+    echo "$!" >> "$PID_FILE"
+    : $((MIX_INDEX++))
+done
+
+$TERMINAL -T "LastMix.py $MIX_INDEX" $TERM_OPS "./LastMix.py config/Mix3.cfg" &
+echo "$!" >> "$PID_FILE"
+
+# start exit point
+RECV_PORT=20004
+
+$TERMINAL -T VPNStub.py $TERM_OPS "./VPNStub.py" &
+
+echo "$!" >> "$PID_FILE"
+
+if [ -n "$1" ]; then
+    $TERMINAL -T "Recv.py 40000" $TERM_OPS "./Recv.py $IP:40000"
+    PYTHONSTARTUP=startupfile python3 &
+fi

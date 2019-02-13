@@ -2,6 +2,10 @@
 chain:
 	bash scripts/start_chain
 
+.PHONY: chain_new
+chain_new:
+	bash scripts/start_chain_new
+
 .PHONY: manual
 manual:
 	bash start_chain manual
@@ -22,6 +26,10 @@ stop:
 
 .PHONY: test
 test: chain
+	bash scripts/start_tests
+
+.PHONY: test_new
+test_new: chain_new
 	bash scripts/start_tests
 
 .SILENT: delay-test
