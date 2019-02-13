@@ -1,8 +1,13 @@
+#!/usr/bin/python3
+
 import select
 from socket import socket, AF_INET, SOCK_STREAM
 
+from constants import IPV4_LEN, PORT_LEN
+from util import b2i, b2ip
+
 IP = "127.0.0.1"
-PORT = 60050
+PORT = 20004
 OPEN_CONNECTIONS = 10
 
 to_mix = socket(AF_INET, SOCK_STREAM)
@@ -12,6 +17,7 @@ to_mix.listen(OPEN_CONNECTIONS)
 print(f"Listening on {IP}:{PORT}")
 
 read_list = [to_mix]
+initialized_list = []
 
 
 if __name__ == "__main__":
@@ -24,18 +30,41 @@ if __name__ == "__main__":
                 read_list.append(client_socket)
                 print(f"Connection from {address}")
             else:
-                length = s.recv(2)
+                if s in initialized_list:
+                    length = s.recv(2)
 
-                if length:
-                    len_int = length[1]
-                    len_int += length[0] << 8
-                    data = s.recv(len_int)
+                    if length:
+                        len_int = b2i(length)
 
-                    chan_id = data[1]
-                    chan_id += data[0] << 8
+                        data = s.recv(len_int)
 
-                    print(f"Got message from {chan_id}")
+                        utf = "utf-8"
+                        print(f"Got data message from {s.getpeername()}. Length: {len_int}")
+                        print(data)
+                    else:
+                        s.close()
+                        read_list.remove(s)
+                        try:
+                            initialized_list.remove(s)
+                        except ValueError:
+                            pass
+
+                        continue
                 else:
-                    s.close()
-                    read_list.remove(s)
-                    continue
+                    version = s.recv(1)
+                    command = s.recv(1)
+                    addr_type = s.recv(1)
+                    ip = s.recv(IPV4_LEN)
+                    dest_port = s.recv(PORT_LEN)
+                    src_port = s.recv(PORT_LEN)
+
+                    assert version == b'\x01', version
+                    assert command == b'\x04', command
+                    assert addr_type == b'\x01', addr_type
+
+                    ip = b2ip(ip)
+                    port = b2i(dest_port)
+
+                    print(f"Got init message from {s.getpeername()} for {ip}: {port}")
+
+                    initialized_list.append(s)
