@@ -99,7 +99,7 @@ class LastMix:
                     self.handle_mix_fragment(packet)
 
             # send out responses
-            if len(ChannelLastMix.responses) >= STORE_LIMIT:
+            while len(ChannelLastMix.responses) >= STORE_LIMIT:
                 # mix packets before sending
                 shuffle(ChannelLastMix.responses)
                 # send STORE_LIMIT packets
