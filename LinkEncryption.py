@@ -45,6 +45,6 @@ class LinkDecryptor:
         chan_id, msg_ctr, msg_type, _ = cut(
             plain_header, CHAN_ID_SIZE, CTR_PREFIX_LEN, MSG_TYPE_FLAG_LEN)
 
-        self.replay_detector.check_replay_window(link_ctr)
+        #self.replay_detector.check_replay_window(link_ctr)
 
         return b2i(chan_id), msg_ctr, fragment, msg_type
