@@ -4,7 +4,7 @@ import select
 from socket import socket, AF_INET, SOCK_STREAM
 
 from constants import IPV4_LEN, PORT_LEN
-from util import b2i, b2ip
+from util import b2i, b2ip, i2b
 
 IP = "127.0.0.1"
 PORT = 20004
@@ -17,7 +17,7 @@ to_mix.listen(OPEN_CONNECTIONS)
 print(f"Listening on {IP}:{PORT}")
 
 read_list = [to_mix]
-initialized_list = []
+initialized_dict = {}
 
 
 if __name__ == "__main__":
@@ -30,7 +30,7 @@ if __name__ == "__main__":
                 read_list.append(client_socket)
                 print(f"Connection from {address}")
             else:
-                if s in initialized_list:
+                if s in initialized_dict:
                     length = s.recv(2)
 
                     if length:
@@ -41,12 +41,12 @@ if __name__ == "__main__":
                         utf = "utf-8"
                         print(f"Got data message from {s.getpeername()}. Length: {len_int}")
                         print(data)
-                        s.send(data)
+                        s.send(i2b(len(data), 2) + data)
                     else:
                         s.close()
                         read_list.remove(s)
                         try:
-                            initialized_list.remove(s)
+                            del initialized_dict[s]
                         except ValueError:
                             pass
 
@@ -68,4 +68,4 @@ if __name__ == "__main__":
 
                     print(f"Got init message from {s.getpeername()} for {ip}: {port}")
 
-                    initialized_list.append(s)
+                    initialized_dict[s] = (ip, port)

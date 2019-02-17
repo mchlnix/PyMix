@@ -10,7 +10,7 @@ from LinkEncryption import LinkDecryptor, LinkEncryptor
 from MsgV3 import get_pub_key
 from UDPChannel import ChannelLastMix
 from constants import UDP_MTU, SYM_KEY_LEN, DATA_MSG_FLAG
-from util import read_cfg_values, shuffle
+from util import read_cfg_values, shuffle, b2i
 
 STORE_LIMIT = 1
 
@@ -75,7 +75,8 @@ class LastMix:
                     # if the socket is associated with a channel, it's a
                     # response
                     try:
-                        response = channel.to_vpn.recv(UDP_MTU)
+                        length = b2i(channel.to_vpn.recv(2))
+                        response = channel.to_vpn.recv(length)
                     except ConnectionRefusedError as cfe:
                         print(cfe, channel.out_sock.getpeername())
                         continue
