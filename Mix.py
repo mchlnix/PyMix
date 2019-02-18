@@ -42,7 +42,7 @@ class Mix:
 
         print(self, "listening on {}:{}".format(*own_addr))
 
-    def handle_mix_fragment(self, packet):
+    def handle_mix_fragment(self, packet, addr):
         """Handles a message coming in from a client to be sent over the mix
         chain or from a mix earlier in the chain to its ultimate recipient. The
         given payload must be decrypted with the mixes symmetric key and the
@@ -67,7 +67,7 @@ class Mix:
                 print(self, "Duplicate channel initialization for", in_id)
                 channel = ChannelMid.table_in[in_id]
             else:
-                channel = ChannelMid(in_id, self.check_responses)
+                channel = ChannelMid(in_id, addr, self.check_responses)
 
             channel.parse_channel_init(msg_ctr + fragment, self.priv_comp)
 
@@ -94,9 +94,7 @@ class Mix:
             if addr == self.next_addr:
                 self.handle_response(packet)
             else:
-                if self.mix_addr is None:
-                    self.mix_addr = addr
-                self.handle_mix_fragment(packet)
+                self.handle_mix_fragment(packet, addr)
 
             # send out requests
             if len(ChannelMid.requests) >= STORE_LIMIT:
@@ -118,12 +116,12 @@ class Mix:
                 shuffle(ChannelMid.responses)
                 # send STORE_LIMIT packets
                 for _ in range(STORE_LIMIT):
-                    packet = ChannelMid.responses.pop()
+                    address, packet = ChannelMid.responses.pop()
 
                     enc_packet = self.response_link_encryptor.encrypt(packet)
 
-                    print(self, "Data/Init", "<-", len(enc_packet))
-                    self.incoming.sendto(enc_packet, self.mix_addr)
+                    print(self, "Data/Init", "<-", address, len(enc_packet))
+                    self.incoming.sendto(enc_packet, address)
 
     def __repr__(self):
         return "Mix:"

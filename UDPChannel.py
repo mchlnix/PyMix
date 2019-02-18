@@ -240,9 +240,11 @@ class ChannelMid:
     table_out = dict()
     table_in = dict()
 
-    def __init__(self, in_chan_id, check_responses=True):
+    def __init__(self, in_chan_id, address, check_responses=True):
         self.in_chan_id = in_chan_id
         self.out_chan_id = ChannelMid.random_channel()
+
+        self.address = address
 
         print(self, "New Channel")
 
@@ -305,7 +307,7 @@ class ChannelMid:
 
         response = create_packet(self.in_chan_id, msg_type, msg_ctr, forward_msg)
 
-        ChannelMid.responses.append(response)
+        ChannelMid.responses.append((self.address, response))
 
     def parse_channel_init(self, channel_init, priv_comp):
         """Takes an already decrypted channel init message and reads the key.
@@ -565,7 +567,7 @@ class ChannelLastMix:
         frag_gen = FragmentGenerator(response)
 
         while frag_gen:
-            print(self, "Data", "<-", len(frag_gen.udp_payload))
+            print(self, "Data fragment", "<-", len(frag_gen.udp_payload))
 
             self.response_counter.count()
 
