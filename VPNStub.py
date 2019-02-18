@@ -2,6 +2,7 @@
 
 import select
 from socket import socket, AF_INET, SOCK_STREAM
+from time import sleep
 
 from constants import IPV4_LEN, PORT_LEN
 from util import b2i, b2ip, i2b
@@ -10,9 +11,17 @@ IP = "127.0.0.1"
 PORT = 20004
 OPEN_CONNECTIONS = 10
 
-to_mix = socket(AF_INET, SOCK_STREAM)
-to_mix.bind((IP, PORT))
-to_mix.listen(OPEN_CONNECTIONS)
+connected = False
+
+while not connected:
+    print("Trying to connect to:", IP, PORT)
+    try:
+        to_mix = socket(AF_INET, SOCK_STREAM)
+        to_mix.bind((IP, PORT))
+        to_mix.listen(OPEN_CONNECTIONS)
+        connected = True
+    except OSError:
+        sleep(5)
 
 print(f"Listening on {IP}:{PORT}")
 

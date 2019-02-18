@@ -52,20 +52,22 @@ class Mix:
         later."""
         in_id, msg_ctr, fragment, msg_type = self.request_link_decryptor.decrypt(packet)
 
+        lookup_key = (addr, in_id)
+
         # connect incoming chan id with address of the packet
         if msg_type == DATA_MSG_FLAG:
             # existing channel
 
-            if in_id not in ChannelMid.table_in.keys():
+            if lookup_key not in ChannelMid.table_in.keys():
                 raise Exception("Got data msg for uninitialized channel", in_id)
 
-            channel = ChannelMid.table_in[in_id]
+            channel = ChannelMid.table_in[lookup_key]
             channel.forward_request(msg_ctr + fragment)
         else:
             # new channel
-            if in_id in ChannelMid.table_in.keys():
+            if lookup_key in ChannelMid.table_in.keys():
                 print(self, "Duplicate channel initialization for", in_id)
-                channel = ChannelMid.table_in[in_id]
+                channel = ChannelMid.table_in[lookup_key]
             else:
                 channel = ChannelMid(in_id, addr, self.check_responses)
 

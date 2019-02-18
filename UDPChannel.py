@@ -7,7 +7,7 @@ from Counter import Counter
 from MixMessage import DATA_FRAG_SIZE, MixMessageStore, DATA_PACKET_SIZE, FragmentGenerator, \
     make_dummy_init_fragment, make_dummy_data_fragment
 from MsgV3 import gen_init_msg, process, cut_init_message
-from ReplayDetection import ReplayDetector
+from ReplayDetection import ReplayDetector, ReplayDetectedError
 from constants import CHAN_ID_SIZE, MIN_PORT, MAX_PORT, CTR_PREFIX_LEN, \
     IPV4_LEN, PORT_LEN, CHAN_INIT_MSG_FLAG, DATA_MSG_FLAG, \
     CHAN_CONFIRM_MSG_FLAG, MSG_TYPE_FLAG_LEN, CHANNEL_CTR_START, CHANNEL_TIMEOUT_SEC
@@ -249,7 +249,7 @@ class ChannelMid:
         print(self, "New Channel")
 
         ChannelMid.table_out[self.out_chan_id] = self
-        ChannelMid.table_in[self.in_chan_id] = self
+        ChannelMid.table_in[(address, self.in_chan_id)] = self
 
         self.req_key = None
         self.res_key = None
@@ -269,17 +269,21 @@ class ChannelMid:
 
         ctr, cipher_text = cut(request, CTR_PREFIX_LEN)
 
-        self.request_replay_detector.check_replay_window(b2i(ctr))
+        try:
+            self.request_replay_detector.check_replay_window(b2i(ctr))
 
-        cipher = ctr_cipher(self.req_key, b2i(ctr))
+            cipher = ctr_cipher(self.req_key, b2i(ctr))
 
-        payload = cipher.decrypt(cipher_text)
+            payload = cipher.decrypt(cipher_text)
 
-        print(self, "Data", "->", len(payload))
+            print(self, "Data", "->", len(payload))
 
-        packet = create_packet(self.out_chan_id, DATA_MSG_FLAG, ctr, payload)
+            packet = create_packet(self.out_chan_id, DATA_MSG_FLAG, ctr, payload)
 
-        ChannelMid.requests.append(packet)
+            ChannelMid.requests.append(packet)
+
+        except ReplayDetectedError:
+            print("Detected Replay on channel", self.in_chan_id, "for counter", b2i(ctr))
 
         timed_out = check_for_timed_out_channels(ChannelMid.table_in)
 
@@ -316,7 +320,11 @@ class ChannelMid:
 
         msg_ctr, channel_init = cut(channel_init, CTR_PREFIX_LEN)
 
-        self.request_replay_detector.check_replay_window(b2i(msg_ctr))
+        try:
+            self.request_replay_detector.check_replay_window(b2i(msg_ctr))
+        except ReplayDetectedError:
+            print("Detected Replay on channel", self.in_chan_id, "for counter", b2i(msg_ctr))
+            return
 
         key_req, key_res, _, channel_init = process(priv_comp, b2i(msg_ctr), channel_init)
 
@@ -521,7 +529,10 @@ class ChannelLastMix:
         for mix_message in self.msg_store.completed():
             print(self, "Data", "->", len(mix_message.payload))
 
-            self.to_vpn.send(i2b(len(mix_message.payload), 2) + mix_message.payload)
+            try:
+                self.to_vpn.send(i2b(len(mix_message.payload), 2) + mix_message.payload)
+            except BrokenPipeError as bpe:
+                print(bpe)
 
         self.msg_store.remove_completed()
 
@@ -531,23 +542,27 @@ class ChannelLastMix:
 
         ctr, cipher_text = cut(request, CTR_PREFIX_LEN)
 
-        self.request_replay_detector.check_replay_window(b2i(ctr))
-
-        cipher = ctr_cipher(self.req_key, b2i(ctr))
-
-        payload = cipher.decrypt(cipher_text)
-
-        print(self, "Data", "->", len(payload))
-
-        fragment, _ = cut(payload, DATA_FRAG_SIZE)
-
         try:
-            self.msg_store.parse_fragment(fragment)
-        except ValueError:
-            print(self, "Dummy Request received")
-            return
+            self.request_replay_detector.check_replay_window(b2i(ctr))
 
-        self.send_requests()
+            cipher = ctr_cipher(self.req_key, b2i(ctr))
+
+            payload = cipher.decrypt(cipher_text)
+
+            print(self, "Data", "->", len(payload))
+
+            fragment, _ = cut(payload, DATA_FRAG_SIZE)
+
+            try:
+                self.msg_store.parse_fragment(fragment)
+            except ValueError:
+                print(self, "Dummy Request received")
+                return
+
+            self.send_requests()
+
+        except ReplayDetectedError:
+            print("Detected Replay on channel", self.chan_id, "for counter", b2i(ctr))
 
         timed_out = check_for_timed_out_channels(ChannelLastMix.table)
 
@@ -586,7 +601,10 @@ class ChannelLastMix:
 
         msg_ctr, channel_init = cut(channel_init, CTR_PREFIX_LEN)
 
-        self.request_replay_detector.check_replay_window(b2i(msg_ctr))
+        try:
+            self.request_replay_detector.check_replay_window(b2i(msg_ctr))
+        except ReplayDetectedError:
+            print("Detected Replay on channel", self.chan_id, "for counter", b2i(msg_ctr))
 
         key_req, key_res, payload, _ = process(priv_comp, b2i(msg_ctr), channel_init)
 
@@ -604,7 +622,10 @@ class ChannelLastMix:
         if not self.initialized:
             connect_message = bytes([1, 4, 1]) + ip + port + bytes(2)
 
-            self.to_vpn.send(connect_message)
+            try:
+                self.to_vpn.send(connect_message)
+            except BrokenPipeError as bpe:
+                print(bpe)
 
         self.initialized = True
 
