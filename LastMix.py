@@ -75,7 +75,7 @@ class LastMix:
                     # if the socket is associated with a channel, it's a
                     # response
                     try:
-                        length = b2i(channel.to_vpn.recv(2))
+                        length = b2i(channel.to_vpn.recv(4))
                         response = channel.to_vpn.recv(length)
                     except ConnectionRefusedError as cfe:
                         print(cfe, channel.out_sock.getpeername())
