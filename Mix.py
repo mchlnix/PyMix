@@ -109,7 +109,6 @@ class Mix:
 
                     enc_packet = self.request_link_encryptor.encrypt(packet)
 
-                    print(self, "Data/Init", "->", len(enc_packet))
                     self.incoming.sendto(enc_packet, self.next_addr)
 
             # send out responses
@@ -122,7 +121,6 @@ class Mix:
 
                     enc_packet = self.response_link_encryptor.encrypt(packet)
 
-                    print(self, "Data/Init", "<-", address, len(enc_packet))
                     self.incoming.sendto(enc_packet, address)
 
     def __repr__(self):

@@ -106,11 +106,10 @@ class LastMix:
                 for _ in range(STORE_LIMIT):
                     packet = ChannelLastMix.responses.pop()
 
-                    print(self, "Data/Init", "<-", len(packet))
                     self.incoming.sendto(self.response_link_encryptor.encrypt(packet), self.mix_addr)
 
     def __repr__(self):
-        return "Mix:"
+        return "LastMix:"
 
 
 if __name__ == "__main__":

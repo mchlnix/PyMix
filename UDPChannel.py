@@ -80,10 +80,14 @@ class ChannelEntry:
     def request(self, request):
         self.last_interaction = time()
 
+        print("Sending UDP-Packet, len", len(request), "->")
+
         self._make_request_fragments(request)
 
     def response(self, response):
         self.last_interaction = time()
+
+        print(self, "<- Response")
 
         msg_type, response = cut(response, MSG_TYPE_FLAG_LEN)
 
@@ -108,7 +112,7 @@ class ChannelEntry:
         self.mix_msg_store.remove_completed()
 
         for packet in packets:
-            print(self, "Data", "<-", len(packet.payload))
+            print(self, "<- Taking complete packet, len:", len(packet.payload))
 
         return packets
 
@@ -124,7 +128,7 @@ class ChannelEntry:
         channel_init = gen_init_msg(self.pub_comps, self.request_counter.current_value, self.req_sym_keys, self.res_sym_keys,
                                     destination + fragment)
 
-        print(self, "Init", "->", len(channel_init))
+        print(self, "Init ->")
 
         # we send a counter value with init messages for channel replay detection only
         return create_packet(self.chan_id, CHAN_INIT_MSG_FLAG, self.request_counter, channel_init)
@@ -135,7 +139,7 @@ class ChannelEntry:
 
         message_counter, payload = cut(fragment, CTR_PREFIX_LEN)
 
-        print(self, "Data", "->", len(payload))
+        print(self, "Request ->")
 
         return create_packet(self.chan_id, DATA_MSG_FLAG, message_counter, payload)
 
@@ -246,7 +250,7 @@ class ChannelMid:
 
         self.address = address
 
-        print(self, "New Channel")
+        print(self, "New Channel from", self.in_chan_id, "to", self.out_chan_id)
 
         ChannelMid.table_out[self.out_chan_id] = self
         ChannelMid.table_in[(address, self.in_chan_id)] = self
@@ -276,7 +280,7 @@ class ChannelMid:
 
             payload = cipher.decrypt(cipher_text)
 
-            print(self, "Data", "->", len(payload))
+            print(self, "Request ->, Ctr:", b2i(ctr))
 
             packet = create_packet(self.out_chan_id, DATA_MSG_FLAG, ctr, payload)
 
@@ -307,7 +311,7 @@ class ChannelMid:
 
         forward_msg = cipher.encrypt(response)
 
-        print(self, "Data", "<-", len(forward_msg))
+        print(self, "<- Response, Ctr:", b2i(msg_ctr))
 
         response = create_packet(self.in_chan_id, msg_type, msg_ctr, forward_msg)
 
@@ -337,7 +341,7 @@ class ChannelMid:
 
         self.initialized = True
 
-        print(self, "Init", "->", len(channel_init))
+        print(self, "Init ->, Ctr:", b2i(msg_ctr))
 
         # todo look at this one again
         packet = create_packet(self.out_chan_id, CHAN_INIT_MSG_FLAG, msg_ctr, channel_init)
@@ -345,7 +349,7 @@ class ChannelMid:
         ChannelMid.requests.append(packet)
 
     def __str__(self):
-        return "ChannelMid {} - {}:".format(self.in_chan_id, self.out_chan_id)
+        return "ChannelMid {} <-> {}:".format(self.in_chan_id, self.out_chan_id)
 
     @staticmethod
     def random_channel():
@@ -509,6 +513,8 @@ class ChannelLastMix:
         self.to_vpn = ChannelLastMix.random_socket(destination)
         ChannelLastMix.sock_sel.register(self.to_vpn, EVENT_READ, data=self)
 
+        self.destination = ()
+
         print(self, "New Channel")
 
         ChannelLastMix.table[self.chan_id] = self
@@ -527,7 +533,7 @@ class ChannelLastMix:
     def send_requests(self):
         # send completed mix messages to the destination immediately
         for mix_message in self.msg_store.completed():
-            print(self, "Data", "->", len(mix_message.payload))
+            print(self, "Data Request ->", self.destination, "len:", len(mix_message.payload))
 
             try:
                 self.to_vpn.send(i2b(len(mix_message.payload), 2) + mix_message.payload)
@@ -542,14 +548,14 @@ class ChannelLastMix:
 
         ctr, cipher_text = cut(request, CTR_PREFIX_LEN)
 
+        print(self, "Received, Ctr:", b2i(ctr))
+
         try:
             self.request_replay_detector.check_replay_window(b2i(ctr))
 
             cipher = ctr_cipher(self.req_key, b2i(ctr))
 
             payload = cipher.decrypt(cipher_text)
-
-            print(self, "Data", "->", len(payload))
 
             fragment, _ = cut(payload, DATA_FRAG_SIZE)
 
@@ -562,7 +568,7 @@ class ChannelLastMix:
             self.send_requests()
 
         except ReplayDetectedError:
-            print("Detected Replay on channel", self.chan_id, "for counter", b2i(ctr))
+            print(self, "Detected Replay for counter", b2i(ctr))
 
         timed_out = check_for_timed_out_channels(ChannelLastMix.table)
 
@@ -582,9 +588,9 @@ class ChannelLastMix:
         frag_gen = FragmentGenerator(response)
 
         while frag_gen:
-            print(self, "Data fragment", "<-", len(frag_gen.udp_payload))
-
             self.response_counter.count()
+
+            print(self, "Data Response <-", self.destination, ", Ctr:", int(self.response_counter), "UDP-Payload left:", len(frag_gen.udp_payload))
 
             fragment = frag_gen.get_data_fragment()
 
@@ -615,9 +621,11 @@ class ChannelLastMix:
             self.req_key = key_req
             self.res_key = key_res
 
-        print(self, "Init", "->", len(payload))
-
         ip, port, fragment = cut(payload, IPV4_LEN, PORT_LEN)
+
+        self.destination = (b2ip(ip), b2i(port))
+
+        print(self, "Init -> VPNServer:", self.destination, "Ctr:", b2i(msg_ctr))
 
         if not self.initialized:
             connect_message = bytes([1, 4, 1]) + ip + port + bytes(2)
@@ -630,7 +638,6 @@ class ChannelLastMix:
         self.initialized = True
 
         try:
-            print(len(fragment))
             self.msg_store.parse_fragment(fragment)
         except ValueError as v:
             print(self, "Dummy Request received:", v)
@@ -643,7 +650,7 @@ class ChannelLastMix:
         packet = create_packet(self.chan_id, CHAN_CONFIRM_MSG_FLAG, bytes(self.response_counter),
                                get_random_bytes(DATA_PACKET_SIZE))
 
-        print(self, "Init", "<-", "len:", len(packet))
+        print(self, "Sending Init Confirmation back to user.")
 
         ChannelLastMix.responses.append(packet)
 
