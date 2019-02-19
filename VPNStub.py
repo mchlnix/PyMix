@@ -21,7 +21,7 @@ while not connected:
         to_mix.listen(OPEN_CONNECTIONS)
         connected = True
     except OSError:
-        sleep(5)
+        sleep(0.5)
 
 print(f"Listening on {IP}:{PORT}")
 

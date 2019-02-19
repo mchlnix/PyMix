@@ -44,6 +44,8 @@ $TERMINAL -T VPNStub.py $TERM_OPS "./VPNStub.py" &
 
 echo "$!" >> "$PID_FILE"
 
+sleep 2
+
 if [ -n "$1" ]; then
     $TERMINAL -T "Recv.py 40000" $TERM_OPS "./Recv.py $IP:40000"
     PYTHONSTARTUP=startupfile python3 &
