@@ -530,7 +530,7 @@ class ChannelLastMix:
             print(self, "Data", "->", len(mix_message.payload))
 
             try:
-                self.to_vpn.send(i2b(len(mix_message.payload), 4) + mix_message.payload)
+                self.to_vpn.send(i2b(len(mix_message.payload), 2) + mix_message.payload)
             except BrokenPipeError as bpe:
                 print(bpe)
 

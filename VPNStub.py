@@ -40,7 +40,7 @@ if __name__ == "__main__":
                 print(f"Connection from {address}")
             else:
                 if s in initialized_dict:
-                    length = s.recv(4)
+                    length = s.recv(2)
 
                     if length:
                         len_int = b2i(length)
@@ -50,7 +50,7 @@ if __name__ == "__main__":
                         utf = "utf-8"
                         print(f"Got data message from {s.getpeername()}. Length: {len_int}")
                         print(data)
-                        s.send(i2b(len(data), 4) + data)
+                        s.send(i2b(len(data), 2) + data)
                     else:
                         s.close()
                         read_list.remove(s)
