@@ -1,8 +1,12 @@
+from petlib.cipher import Cipher
+
 from Counter import Counter
 from ReplayDetection import ReplayDetector
-from constants import LINK_CTR_START, CTR_PREFIX_LEN, LINK_HEADER_LEN, GCM_MAC_LEN, CHAN_ID_SIZE, MSG_TYPE_FLAG_LEN,\
-    RESERVED_LEN
-from util import cut, gcm_cipher, b2i, get_random_bytes
+from constants import LINK_CTR_START, CTR_PREFIX_LEN, LINK_HEADER_LEN, GCM_MAC_LEN, CHAN_ID_SIZE, MSG_TYPE_FLAG_LEN, \
+    RESERVED_LEN, NONCE_LEN
+from util import cut, b2i, get_random_bytes
+
+aes_gcm = Cipher("aes-128-gcm")
 
 
 class LinkEncryptor:
@@ -19,10 +23,13 @@ class LinkEncryptor:
         reserved = get_random_bytes(RESERVED_LEN)
 
         # use all 0s as link key, since they can not be exchanged yet
-        cipher = gcm_cipher(self.key, int(self.counter))
+        ctr = bytes(self.counter) + bytes(NONCE_LEN - CTR_PREFIX_LEN)
+        cipher = aes_gcm.enc(self.key, ctr)
 
         # ctr encrypt the header with a random link counter prefix
-        header, mac = cipher.encrypt_and_digest(chan_id + ctr_prefix + msg_type + reserved)
+        header = cipher.update(chan_id + ctr_prefix + msg_type + reserved)
+        cipher.finalize()
+        mac = cipher.get_tag(GCM_MAC_LEN)
 
         return bytes(self.counter) + header + mac + payload
 
@@ -36,11 +43,12 @@ class LinkDecryptor:
         b_link_ctr, header, mac, fragment = cut(cipher_text, CTR_PREFIX_LEN,
                                                 LINK_HEADER_LEN, GCM_MAC_LEN)
 
-        link_ctr = b2i(b_link_ctr)
+        ctr = b_link_ctr + bytes(NONCE_LEN - CTR_PREFIX_LEN)
+        cipher = aes_gcm.dec(self.key, ctr)
 
-        cipher = gcm_cipher(self.key, link_ctr)
-
-        plain_header = cipher.decrypt_and_verify(header, mac)
+        plain_header = cipher.update(header)
+        cipher.set_tag(mac)
+        cipher.finalize()
 
         chan_id, msg_ctr, msg_type, _ = cut(
             plain_header, CHAN_ID_SIZE, CTR_PREFIX_LEN, MSG_TYPE_FLAG_LEN)

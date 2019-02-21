@@ -3,14 +3,12 @@
    builtin functionality, when it was not convenient enough to use."""
 from math import ceil
 
-from Cryptodome.Cipher import AES
 from Cryptodome.Random import get_random_bytes
 from Cryptodome.Random.random import randint, shuffle as _shuffle
-from Cryptodome.Util import Counter
 from petlib.cipher import Cipher
 
 from constants import MAX_CHAN_ID, MIN_CHAN_ID, SYM_KEY_LEN, CTR_PREFIX_LEN, \
-    GCM_MAC_LEN, NONCE_LEN
+    NONCE_LEN
 
 BYTE_ORDER = "big"
 
@@ -185,9 +183,3 @@ def ctr_cipher(key, counter):
     # nbits = 8 bytes + prefix = 8 bytes
     ctr = i2b(counter, CTR_PREFIX_LEN) + bytes(NONCE_LEN - CTR_PREFIX_LEN)
     return aes_ctr.enc(key, ctr)
-
-
-def gcm_cipher(key, counter):
-    # nbits = 8 bytes + prefix = 8 bytes
-    return AES.new(key, AES.MODE_GCM,
-                   nonce=i2b(counter, CTR_PREFIX_LEN) + bytes(NONCE_LEN - CTR_PREFIX_LEN), mac_len=GCM_MAC_LEN)
