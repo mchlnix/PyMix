@@ -286,7 +286,10 @@ class FragmentGenerator:
     def __init__(self, udp_payload):
         self.udp_payload = udp_payload
 
+        # TODO fix correctly
         FragmentGenerator.last_used_message_id += 1
+        FragmentGenerator.last_used_message_id %= HIGHEST_ID
+
         self.message_id = FragmentGenerator.last_used_message_id
 
         self.current_fragment = 0
