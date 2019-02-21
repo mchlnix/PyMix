@@ -3,6 +3,8 @@ from selectors import DefaultSelector, EVENT_READ
 from socket import socket, AF_INET, SOCK_DGRAM as UDP, SOCK_STREAM
 from time import time
 
+from petlib.cipher import Cipher
+
 from Counter import Counter
 from MixMessage import DATA_FRAG_SIZE, MixMessageStore, DATA_PACKET_SIZE, FragmentGenerator, \
     make_dummy_init_fragment, make_dummy_data_fragment
@@ -13,6 +15,8 @@ from constants import CHAN_ID_SIZE, MIN_PORT, MAX_PORT, CTR_PREFIX_LEN, \
     CHAN_CONFIRM_MSG_FLAG, MSG_TYPE_FLAG_LEN, CHANNEL_CTR_START, CHANNEL_TIMEOUT_SEC
 from util import i2b, b2i, random_channel_id, cut, b2ip, gen_sym_key, ctr_cipher, \
     get_random_bytes, ip2b
+
+aes = Cipher("AES-128-CTR")
 
 
 def check_for_timed_out_channels(channel_table, timeout=CHANNEL_TIMEOUT_SEC, log_prefix="UDPChannel"):
@@ -203,21 +207,21 @@ class ChannelEntry:
 
             cipher = ctr_cipher(key, int(counter))
 
-            fragment = cipher.encrypt(fragment)
+            fragment = cipher.update(fragment)
 
         return bytes(counter) + fragment
 
     def _decrypt_fragment(self, fragment):
         ctr, cipher_text = cut(fragment, CTR_PREFIX_LEN)
 
-        ctr = b2i(ctr)
+        counter = b2i(ctr)
 
         for key in self.res_sym_keys:
-            cipher = ctr_cipher(key, ctr)
+            cipher = ctr_cipher(key, counter)
 
-            cipher_text = cipher.decrypt(cipher_text)
+            cipher_text = cipher.update(cipher_text)
 
-        self.replay_detector.check_replay_window(ctr)
+        self.replay_detector.check_replay_window(counter)
 
         return cipher_text
 
@@ -278,7 +282,7 @@ class ChannelMid:
 
             cipher = ctr_cipher(self.req_key, b2i(ctr))
 
-            payload = cipher.decrypt(cipher_text)
+            payload = cipher.update(cipher_text)
 
             print(self, "Request ->, Ctr:", b2i(ctr))
 
@@ -309,7 +313,7 @@ class ChannelMid:
 
         cipher = ctr_cipher(self.res_key, b2i(msg_ctr))
 
-        forward_msg = cipher.encrypt(response)
+        forward_msg = cipher.update(response)
 
         print(self, "<- Response, Ctr:", b2i(msg_ctr))
 
@@ -555,7 +559,7 @@ class ChannelLastMix:
 
             cipher = ctr_cipher(self.req_key, b2i(ctr))
 
-            payload = cipher.decrypt(cipher_text)
+            payload = cipher.update(cipher_text)
 
             fragment, _ = cut(payload, DATA_FRAG_SIZE)
 
@@ -596,7 +600,7 @@ class ChannelLastMix:
 
             cipher = ctr_cipher(self.res_key, int(self.response_counter))
 
-            fragment = cipher.encrypt(fragment)
+            fragment = cipher.update(fragment)
 
             packet = create_packet(self.chan_id, DATA_MSG_FLAG, bytes(self.response_counter), fragment)
 

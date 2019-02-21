@@ -65,7 +65,7 @@ def test_encrypt_fragment():
     for _ in range(MIX_COUNT):
         cipher = ctr_cipher(sym_key, counter.current_value)
 
-        packet2 = cipher.encrypt(packet2)
+        packet2 = cipher.update(packet2)
 
     packet2 = bytes(counter) + packet2
 
@@ -90,7 +90,7 @@ def test_decrypt_fragment():
 
         cipher = ctr_cipher(sym_key, b2i(msg_ctr))
 
-        fragment = cipher.decrypt(fragment)
+        fragment = cipher.update(fragment)
 
     packet2 = fragment
 

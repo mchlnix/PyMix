@@ -1,3 +1,4 @@
+from petlib.cipher import Cipher
 from petlib.ec import EcPt
 from sphinxmix.SphinxParams import SphinxParams
 
@@ -5,6 +6,8 @@ from constants import SYM_KEY_LEN, MIX_COUNT, GROUP_ELEMENT_LEN, CTR_PREFIX_LEN,
 from util import ctr_cipher, cut, gen_sym_key, i2b, get_random_bytes
 
 params = SphinxParams()
+
+aes = Cipher("AES-128-CTR")
 
 
 def group_expon(exponent):
@@ -22,7 +25,8 @@ def get_pub_key(private_key):
 def gen_init_msg(pub_mix_keys, message_counter, request_channel_keys, response_channel_keys, payload):
     assert len(pub_mix_keys) == len(request_channel_keys)
 
-    ctr_blind = gen_blind(i2b(message_counter, CTR_PREFIX_LEN) + bytes(NONCE_LEN - CTR_PREFIX_LEN))
+    ctr = i2b(message_counter, CTR_PREFIX_LEN) + bytes(NONCE_LEN - CTR_PREFIX_LEN)
+    ctr_blind = gen_blind(ctr)
 
     y_mix_1, y_mix_2, y_mix_3 = pub_mix_keys
 
@@ -45,13 +49,15 @@ def gen_init_msg(pub_mix_keys, message_counter, request_channel_keys, response_c
     payload_onion = payload
 
     for k_disp, k_chan_req, k_chan_res in zip([k_disp_3, k_disp_2, k_disp_1], reversed(request_channel_keys), reversed(response_channel_keys)):
-        cipher = ctr_cipher(params.get_aes_key(k_disp), message_counter)
+        key = params.get_aes_key(k_disp)
 
-        chan_key_onion = cipher.encrypt(k_chan_req + k_chan_res + chan_key_onion[0:-2 * SYM_KEY_LEN])
+        cipher = aes.enc(key, ctr)
 
-        cipher = ctr_cipher(params.get_aes_key(k_disp), message_counter)
+        chan_key_onion = cipher.update(k_chan_req + k_chan_res + chan_key_onion[0:-2 * SYM_KEY_LEN])
 
-        payload_onion = cipher.encrypt(payload_onion)
+        cipher = aes.enc(key, ctr)
+
+        payload_onion = cipher.update(payload_onion)
 
     return y_msg_1.export() + chan_key_onion + payload_onion
 
@@ -66,21 +72,24 @@ def gen_blind(secret):
 def process(priv_mix_key, message_counter, message):
     y_msg, chan_key_onion, payload_onion = cut_init_message(message)
 
-    ctr_blind = gen_blind(i2b(message_counter, CTR_PREFIX_LEN) + bytes(NONCE_LEN - CTR_PREFIX_LEN))
+    ctr = i2b(message_counter, CTR_PREFIX_LEN) + bytes(NONCE_LEN - CTR_PREFIX_LEN)
+
+    ctr_blind = gen_blind(ctr)
 
     k_disp = params.group.expon(y_msg, [priv_mix_key])
     k_disp = params.group.expon(k_disp, [ctr_blind])
 
-    cipher = ctr_cipher(params.get_aes_key(k_disp), message_counter)
+    key = params.get_aes_key(k_disp)
+    cipher = ctr_cipher(key, message_counter)
 
-    k_chan_req, k_chan_res, chan_key_onion = cut(cipher.decrypt(chan_key_onion), SYM_KEY_LEN, SYM_KEY_LEN)
+    k_chan_req, k_chan_res, chan_key_onion = cut(cipher.update(chan_key_onion), SYM_KEY_LEN, SYM_KEY_LEN)
 
     chan_key_onion += gen_sym_key()
     chan_key_onion += gen_sym_key()
 
-    cipher = ctr_cipher(params.get_aes_key(k_disp), message_counter)
+    cipher = ctr_cipher(key, message_counter)
 
-    payload_onion = cipher.decrypt(payload_onion)
+    payload_onion = cipher.update(payload_onion)
 
     blind_1 = gen_blind(k_disp)
     y_msg_2 = params.group.expon(y_msg, [blind_1])

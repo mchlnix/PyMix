@@ -7,6 +7,7 @@ from Cryptodome.Cipher import AES
 from Cryptodome.Random import get_random_bytes
 from Cryptodome.Random.random import randint, shuffle as _shuffle
 from Cryptodome.Util import Counter
+from petlib.cipher import Cipher
 
 from constants import MAX_CHAN_ID, MIN_CHAN_ID, SYM_KEY_LEN, CTR_PREFIX_LEN, \
     GCM_MAC_LEN, NONCE_LEN
@@ -14,6 +15,8 @@ from constants import MAX_CHAN_ID, MIN_CHAN_ID, SYM_KEY_LEN, CTR_PREFIX_LEN, \
 BYTE_ORDER = "big"
 
 shuffle = _shuffle
+
+aes_ctr = Cipher("AES-128-CTR")
 
 
 def b2i(int_in_bytes):
@@ -180,8 +183,8 @@ def gen_ctr_prefix():
 
 def ctr_cipher(key, counter):
     # nbits = 8 bytes + prefix = 8 bytes
-    ctr = Counter.new(nbits=(NONCE_LEN - CTR_PREFIX_LEN) * 8, initial_value=0, prefix=i2b(counter, CTR_PREFIX_LEN))
-    return AES.new(key, AES.MODE_CTR, counter=ctr)
+    ctr = i2b(counter, CTR_PREFIX_LEN) + bytes(NONCE_LEN - CTR_PREFIX_LEN)
+    return aes_ctr.enc(key, ctr)
 
 
 def gcm_cipher(key, counter):
